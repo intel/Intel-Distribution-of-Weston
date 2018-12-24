@@ -3885,6 +3885,19 @@ weston_surface_commit_state(struct weston_surface *surface,
 			    &state->feedback_list);
 	wl_list_init(&state->feedback_list);
 
+	//Apply colorspace and HDR metadata state
+	if (surface->pending.hdr_metadata) {
+		if (!surface->hdr_metadata)
+			surface->hdr_metadata =
+				zalloc(sizeof(struct weston_hdr_metadata));
+		memcpy(surface->hdr_metadata,
+		       surface->pending.hdr_metadata,
+		       sizeof(struct weston_hdr_metadata));
+	} else if (surface->hdr_metadata) {
+		free(surface->hdr_metadata);
+		surface->hdr_metadata = NULL;
+	}
+
 	/* weston_protected_surface.enforced/relaxed */
 	if (surface->protection_mode != state->protection_mode)
 		weston_surface_set_protection_mode(surface,

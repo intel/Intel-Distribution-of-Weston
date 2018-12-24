@@ -37,6 +37,7 @@ generated_protocols = [
 	[ 'xdg-output', 'v1' ],
 	[ 'xdg-shell', 'v6' ],
 	[ 'xdg-shell', 'stable' ],
+	[ 'hdr-metadata', 'v1' ],
 ]
 
 foreach proto: generated_protocols

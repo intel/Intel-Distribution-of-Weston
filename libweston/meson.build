@@ -36,6 +36,7 @@ srcs_libweston = [
 	'weston-log.c',
 	'weston-direct-display.c',
 	'zoom.c',
+	'hdr_metadata.c',
 	'../shared/colorspace.c',
 	linux_dmabuf_unstable_v1_protocol_c,
 	linux_dmabuf_unstable_v1_server_protocol_h,
@@ -69,6 +70,8 @@ srcs_libweston = [
 	weston_debug_server_protocol_h,
 	weston_direct_display_protocol_c,
 	weston_direct_display_server_protocol_h,
+	hdr_metadata_unstable_v1_protocol_c,
+	hdr_metadata_unstable_v1_server_protocol_h,
 ]
 
 if get_option('renderer-gl')
