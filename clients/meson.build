@@ -349,6 +349,57 @@ if get_option('demo-clients')
 	endforeach
 endif
 
+simple_hdr_video_opts = get_option('simple-hdr-video')
+simple_hdr_video_deps = []
+foreach driver : [ 'intel']
+	if simple_hdr_video_opts.contains(driver)
+		required = true
+		enabled = true
+	elif simple_hdr_video_opts.contains('auto')
+		required = get_option('auto_features').enabled()
+		enabled = not get_option('auto_features').disabled()
+	else
+		enabled = false
+	endif
+
+	if enabled
+		dep = dependency('libdrm_' + driver, required: false)
+		if dep.found()
+		  simple_hdr_video_deps += dep
+			config_h.set('HAVE_LIBDRM_' + driver.to_upper(), 1)
+		elif required
+		  error('simple-hdr-video is configured to use @0@ but it was not found. Or, you can remove @1@ from \'-Dsimple-hdr-video\' list.'.format('libdrm_' + driver, driver))
+		endif
+
+		simple_hdr_video_deps += dependency('libavutil')
+		simple_hdr_video_deps += dependency('libavcodec')
+		simple_hdr_video_deps += dependency('libavformat')
+	endif
+endforeach
+
+if simple_hdr_video_deps.length() > 0
+	executable(
+		'weston-simple-hdr-video',
+		'simple-hdr-video.c',
+		xdg_shell_client_protocol_h,
+		xdg_shell_protocol_c,
+		linux_dmabuf_unstable_v1_client_protocol_h,
+		linux_dmabuf_unstable_v1_protocol_c,
+		hdr_metadata_unstable_v1_protocol_c,
+		hdr_metadata_unstable_v1_client_protocol_h,
+		colorspace_unstable_v1_protocol_c,
+		colorspace_unstable_v1_client_protocol_h,
+		include_directories: include_directories('..'),
+		dependencies: [
+			dep_wayland_client,
+			dep_libdrm,
+			simple_hdr_video_deps,
+			dep_toytoolkit
+		],
+		install: true
+	)
+endif
+
 if get_option('shell-desktop')
 	exe_keyboard = executable(
 		'weston-keyboard',
