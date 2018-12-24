@@ -44,6 +44,7 @@ extern "C" {
 #include <libweston/matrix.h>
 #include <libweston/zalloc.h>
 #include <libweston/hdr_metadata_defs.h>
+#include <libweston/colorspace.h>
 
 struct weston_geometry {
 	int32_t x, y;
@@ -1416,6 +1417,8 @@ struct weston_surface_state {
 	enum weston_surface_protection_mode protection_mode;
 
 	struct weston_hdr_metadata *hdr_metadata;
+
+	uint32_t colorspace;
 };
 
 struct weston_surface_activation_data {
@@ -1555,6 +1558,7 @@ struct weston_surface {
 
 	struct wl_resource *hdr_surface_resource;
 	struct weston_hdr_metadata *hdr_metadata;
+	uint32_t colorspace;
 };
 
 struct weston_subsurface {
@@ -2160,6 +2164,9 @@ weston_compositor_load_icc_file(struct weston_compositor *compositor,
 				const char *path);
 int
 weston_hdr_metadata_setup(struct weston_compositor *compositor);
+
+int
+weston_colorspace_setup(struct weston_compositor *compositor);
 
 #ifdef  __cplusplus
 }
