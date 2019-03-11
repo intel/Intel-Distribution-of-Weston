@@ -117,6 +117,9 @@ noop_renderer_init(struct weston_compositor *ec)
 	renderer->attach = noop_renderer_attach;
 	renderer->surface_set_color = noop_renderer_surface_set_color;
 	renderer->destroy = noop_renderer_destroy;
+	renderer->set_output_colorspace = NULL;
+	renderer->set_output_hdr_metadata = NULL;
+
 	ec->renderer = renderer;
 
 	return 0;

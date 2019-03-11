@@ -970,6 +970,12 @@ struct weston_renderer {
 
 	const struct weston_drm_format_array *
 			(*get_supported_formats)(struct weston_compositor *ec);
+
+	void (*set_output_colorspace)(struct weston_output *output,
+				      uint32_t colorspace);
+
+	void (*set_output_hdr_metadata)(struct weston_output *output,
+					struct weston_hdr_metadata *metadata);
 };
 
 enum weston_capability {
