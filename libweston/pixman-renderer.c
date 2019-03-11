@@ -873,6 +873,8 @@ pixman_renderer_init(struct weston_compositor *ec)
 		pixman_renderer_surface_get_content_size;
 	renderer->base.surface_copy_content =
 		pixman_renderer_surface_copy_content;
+	renderer->base.set_output_colorspace = NULL;
+	renderer->base.set_output_hdr_metadata = NULL;
 	ec->renderer = &renderer->base;
 	ec->capabilities |= WESTON_CAP_ROTATION_ANY;
 	ec->capabilities |= WESTON_CAP_VIEW_CLIP_MASK;
