@@ -276,6 +276,26 @@ drm_output_fini_egl(struct drm_output *output)
 	drm_output_fini_cursor_egl(output);
 }
 
+static uint32_t
+drm_cs_to_weston_cs(uint32_t drm_cs) {
+	switch (drm_cs) {
+		return WESTON_CS_BT2020;
+	}
+
+	return WESTON_CS_BT709;
+}
+
+static uint32_t
+drm_eotf_to_weston_eotf(uint32_t drm_eotf) {
+	switch (drm_eotf) {
+	case DRM_EOTF_HDR_ST2084:
+		return WESTON_EOTF_ST2084;
+	case DRM_EOTF_HLG_BT2100:
+		return WESTON_EOTF_HLG;
+	}
+	return WESTON_EOTF_TRADITIONAL_GAMMA_SDR;
+}
+
 struct drm_fb *
 drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 {
@@ -283,6 +303,28 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct gbm_bo *bo;
 	struct drm_fb *ret;
+	struct weston_head *w_head = weston_output_get_first_head(&output->base);
+	struct drm_head *head = to_drm_head(w_head);
+	struct drm_hdr_metadata_static *dmd = &head->color_state.o_md;
+	uint32_t target_cs = drm_cs_to_weston_cs(head->color_state.o_cs);
+	struct weston_hdr_metadata whm = {0};
+	struct weston_renderer *renderer = output->base.compositor->renderer;
+
+	// If we have eotf other than SDR gamma, then set HDR properties for the
+	// renderer
+	if (dmd->eotf) {
+		whm.metadata.static_metadata.eotf =
+			drm_eotf_to_weston_eotf(dmd->eotf);
+
+		whm.metadata.static_metadata.max_luminance =
+			dmd->max_display_mastering_luminance;
+
+		renderer->set_output_colorspace(&output->base, target_cs);
+		renderer->set_output_hdr_metadata(&output->base, &whm);
+	} else {
+		renderer->set_output_colorspace(&output->base, WESTON_CS_BT709);
+		renderer->set_output_hdr_metadata(&output->base, NULL);
+	}
 
 	output->base.compositor->renderer->repaint_output(&output->base,
 							  damage);
