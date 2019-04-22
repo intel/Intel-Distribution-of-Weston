@@ -1302,7 +1302,7 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 		}
 	}
 
-	if (!b->sprites_are_broken && !output->virtual) {
+	if (!b->sprites_are_broken && !output->virtual && !hdr_surface) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		state = drm_output_propose_state(output_base, pending_state, mode);
 		if (!state) {
