@@ -1086,6 +1086,186 @@ err:
 	return NULL;
 }
 
+/* Color primaries in HDR metadata are expected to be in power of 0.00002,
+* and the maximum value allowed is 1 */
+#define PRIMARY(p) (p > 1 ? 50000 : (p * 50000))
+
+/* Whitepoints in HDR metadata are expected to be in power of 0.00010,
+* and the maximum value allowed is 1 */
+#define WP_PRIMARY(p) (p > 1 ? 10000 : (p * 10000))
+
+static void
+drm_prepare_output_hdr_metadata(struct drm_backend *b,
+				struct drm_head *head,
+				struct weston_hdr_metadata *surface_md,
+				struct drm_hdr_metadata_static *out_md)
+{
+	struct weston_hdr_metadata_static *c_md;
+	struct drm_edid_hdr_metadata_static *d_md;
+
+	memset(out_md, 0, sizeof(*out_md));
+
+	c_md = &surface_md->metadata.static_metadata;
+	d_md = head->hdr_md;
+
+	/* This function gets called only when there is an input HDR surface,
+	 * which means we have to handle only H2S or H2H cases */
+	if (d_md) {
+		out_md->max_cll = c_md->max_cll;
+		out_md->max_fall = c_md->max_fall;
+		out_md->max_display_mastering_luminance = c_md->max_luminance;
+		out_md->min_display_mastering_luminance = c_md->min_luminance;
+		out_md->white_point.x = WP_PRIMARY(c_md->primaries.white_point.x);
+		out_md->white_point.y = WP_PRIMARY(c_md->primaries.white_point.y);
+		out_md->display_primaries[0].x = PRIMARY(c_md->primaries.r.x);
+		out_md->display_primaries[0].y = PRIMARY(c_md->primaries.r.y);
+		out_md->display_primaries[1].x = PRIMARY(c_md->primaries.g.x);
+		out_md->display_primaries[1].y = PRIMARY(c_md->primaries.g.y);
+		out_md->display_primaries[2].x = PRIMARY(c_md->primaries.b.x);
+		out_md->display_primaries[0].y = PRIMARY(c_md->primaries.b.y);
+		out_md->eotf = DRM_EOTF_HDR_ST2084;
+		out_md->metadata_type = 1;
+	}
+}
+
+static int
+drm_head_prepare_hdr_metadata_blob(struct drm_backend *b,
+				   struct weston_surface *hdr_surf,
+				   struct drm_head *drm_head,
+				   struct drm_conn_color_state *target)
+{
+	int ret;
+	uint32_t blob_id = 0;
+	struct hdr_output_metadata output_metadata = {0,};
+
+	/* Prepare and setup tone mapping metadata as output metadata */
+	drm_prepare_output_hdr_metadata(b,
+					drm_head,
+					hdr_surf->hdr_metadata,
+					&target->o_md);
+
+	memcpy(&output_metadata.hdmi_metadata_type1, &target->o_md, sizeof (target->o_md));
+
+	/* create blob to be set during next commit */
+	ret = drmModeCreatePropertyBlob(b->drm.fd,
+					(const void *)&output_metadata,
+					sizeof(output_metadata),
+					&blob_id);
+	if (ret || !blob_id) {
+		drm_debug(b, "\t\t\t[view] Set HDR blob failed\n");
+		memset(&target->o_md, 0, sizeof(target->o_md));
+		return -1;
+	}
+
+	return blob_id;
+}
+
+static int
+drm_head_prepare_color_state(struct drm_backend *b,
+			struct weston_output *output_base,
+			struct weston_surface *hdr_surf)
+{
+	int i;
+	uint32_t blob_id = 0;
+	struct drm_output *output = to_drm_output(output_base);
+	struct drm_edid_hdr_metadata_static *display_md;
+	struct weston_head *w_head = weston_output_get_first_head(&output->base);
+	struct drm_head *drm_head = to_drm_head(w_head);
+	struct drm_conn_color_state *target;
+	enum drm_colorspace target_cs = DRM_COLORSPACE_REC709;
+	uint8_t target_eotf = DRM_EOTF_SDR_TRADITIONAL;
+	uint16_t display_cs = drm_head->clrspaces & EDID_CS_HDR_CS_BASIC;
+
+	if (!drm_head)
+		return 0;
+
+	/* This is an active HDR session, so the state is already set */
+	if (output->output_is_hdr)
+		return 0;
+
+	/* Check if setting output HDR metadata is supported */
+	for (i = 0; i < WDRM_CONNECTOR__COUNT; i++) {
+		struct drm_connector *connector = &drm_head->connector;
+		struct drm_property_info *info = &connector->props[i];
+		if (info && !strcmp(info->name, "HDR_OUTPUT_METADATA"))
+			goto found_hdr;
+	}
+
+	/* Can't find HDR metadata property */
+	weston_log("Warning: No support for HDR metadata property\n");
+		return -1;
+
+found_hdr:
+	/* Check if output colorspace setting is supported */
+	for (i = 0; i < WDRM_CONNECTOR__COUNT; i++) {
+		struct drm_connector *connector = &drm_head->connector;
+		struct drm_property_info *info = &connector->props[i];
+		if (info && !strcmp(info->name, "Colorspace"))
+			goto found_cs;
+	}
+
+	/* Can't find colorspace property */
+	weston_log("Warning: No support for output colorspace property\n");
+		return -1;
+
+found_cs:
+	display_md = drm_head->hdr_md;
+	target = &drm_head->color_state;
+
+	if (display_md && display_cs) {
+		/* Display is HDR and supports basic HDR wide gamuts */
+		target_eotf = DRM_EOTF_HDR_ST2084;
+		if (display_cs & EDID_CS_BT2020RGB)
+			target_cs = DRM_COLORSPACE_REC2020;
+		else
+			target_cs = DRM_COLORSPACE_DCIP3;
+	}
+
+	blob_id = drm_head_prepare_hdr_metadata_blob(b, hdr_surf, drm_head, target);
+	if (blob_id <= 0) {
+		drm_debug(b, "\t\t\t[view] failed to setup output hdr metadata\n");
+		return -1;
+	}
+
+	/* TODO: Setup output gamma here */
+	target->o_eotf = target_eotf;
+	target->o_cs = target_cs;
+	target->changed = true;
+	target->hdr_md_blob_id = blob_id;
+	return 0;
+}
+
+
+static inline struct weston_surface *
+drm_get_first_hdr_surface(struct weston_output *output_base)
+{
+	struct weston_view *ev;
+	struct weston_surface *hdr_surface = NULL;
+	/* Check if we are dealing with HDR view */
+	wl_list_for_each(ev, &output_base->compositor->view_list, link) {
+		hdr_surface = ev->surface;
+		if (hdr_surface && hdr_surface->hdr_metadata)
+			return hdr_surface;
+	}
+	return NULL;
+}
+
+static void
+drm_head_reset_color_state(struct drm_backend *b,
+		struct weston_output *output_base)
+{
+	struct weston_head *w_head = weston_output_get_first_head(output_base);
+	struct drm_head *head = to_drm_head(w_head);
+	struct drm_conn_color_state *cs;
+
+	if (!head)
+		return;
+
+	cs = &head->color_state;
+	memset(cs, 0, sizeof(*cs));
+	cs->changed = 1;
+}
+
 void
 drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 {
@@ -1097,9 +1277,30 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 	struct weston_paint_node *pnode;
 	struct weston_plane *primary = &output_base->compositor->primary_plane;
 	enum drm_output_propose_state_mode mode = DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
+	struct weston_surface *hdr_surface = NULL;
+	int ret;
 
 	drm_debug(b, "\t[repaint] preparing state for output %s (%lu)\n",
 		  output_base->name, (unsigned long) output_base->id);
+
+	hdr_surface = drm_get_first_hdr_surface(output_base);
+	if (hdr_surface) {
+
+		/* This is a HDR view, handle output HDR metadata */
+		ret = drm_head_prepare_color_state(b, output_base, hdr_surface);
+		if (ret)
+			weston_log("Failed to create HDR target\n");
+		output->output_is_hdr = true;
+	} else {
+		/* If this is first SDR view after a HDR view, do following:
+		* Reset the output HDR metadata
+		* Reset the output colorspace
+		*/
+		if (output->output_is_hdr) {
+			drm_head_reset_color_state(b, output_base);
+			output->output_is_hdr = false;
+		}
+	}
 
 	if (!b->sprites_are_broken && !output->virtual) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");

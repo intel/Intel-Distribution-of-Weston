@@ -93,6 +93,19 @@
 #define DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65		11
 #define DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER		12
 
+/* Colorspace bits */
+#define EDID_CS_BT2020RGB (1 << 7)
+#define EDID_CS_BT2020YCC (1 << 6)
+#define EDID_CS_BT2020CYCC (1 << 5)
+#define EDID_CS_DCIP3 (1 << 15)
+#define EDID_CS_HDR_GAMUT_MASK (EDID_CS_BT2020RGB | \
+			EDID_CS_BT2020YCC | \
+			EDID_CS_BT2020CYCC | \
+			EDID_CS_DCIP3)
+#define EDID_CS_HDR_CS_BASIC (EDID_CS_BT2020RGB | \
+		EDID_CS_DCIP3 | \
+		EDID_CS_BT2020YCC)
+
 /**
  * A small wrapper to print information into the 'drm-backend' debug scope.
  *
@@ -560,7 +573,6 @@ struct drm_writeback {
 /* Connector's color correction status */
 struct drm_conn_color_state {
 	bool changed;
-	bool output_is_hdr;
 	uint8_t o_cs;
 	uint8_t o_eotf;
 	uint32_t hdr_md_blob_id;
@@ -648,6 +660,9 @@ struct drm_output {
 	bool virtual;
 
 	submit_frame_cb virtual_submit_frame;
+
+	/* HDR sesstion is active */
+	bool output_is_hdr;
 };
 
 static inline struct drm_head *
