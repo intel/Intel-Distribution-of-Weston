@@ -65,6 +65,7 @@
 #include "linux-dmabuf.h"
 #include "linux-dmabuf-unstable-v1-server-protocol.h"
 #include "linux-explicit-synchronization.h"
+#include "drm-hdr-metadata.h"
 
 static const char default_seat[] = "seat0";
 
@@ -2184,6 +2185,9 @@ drm_head_destroy(struct drm_head *head)
 	weston_head_release(&head->base);
 
 	drm_connector_fini(&head->connector);
+
+	if (head->hdr_md)
+		drm_release_hdr_metadata(head->hdr_md);
 
 	if (head->backlight)
 		backlight_destroy(head->backlight);

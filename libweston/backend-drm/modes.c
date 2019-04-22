@@ -34,6 +34,7 @@
 
 #include "drm-internal.h"
 #include "shared/weston-drm-fourcc.h"
+#include "drm-hdr-metadata.h"
 
 static const char *const aspect_ratio_as_string[] = {
 	[WESTON_MODE_PIC_AR_NONE] = "",
@@ -343,6 +344,13 @@ find_and_parse_output_edid(struct drm_head *head,
 		if (head->edid.serial_number[0] != '\0')
 			*serial_number = head->edid.serial_number;
 	}
+
+	if (head->hdr_md)
+		drm_release_hdr_metadata(head->hdr_md);
+	head->hdr_md = drm_get_display_hdr_metadata(edid_blob->data,
+		edid_blob->length);
+	head->clrspaces = drm_get_display_clrspace(edid_blob->data,
+		edid_blob->length);
 	drmModeFreePropertyBlob(edid_blob);
 }
 

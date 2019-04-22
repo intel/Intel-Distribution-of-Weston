@@ -481,6 +481,39 @@ struct drm_plane {
 	struct weston_drm_format_array formats;
 };
 
+/* CTA-861-G: HDR Metadata names and types */
+enum drm_hdr_eotf_type {
+	DRM_EOTF_SDR_TRADITIONAL = 0,
+	DRM_EOTF_HDR_TRADITIONAL,
+	DRM_EOTF_HDR_ST2084,
+	DRM_EOTF_HLG_BT2100,
+	DRM_EOTF_MAX
+};
+
+enum drm_colorspace {
+	DRM_COLORSPACE_INVALID,
+	DRM_COLORSPACE_REC709,
+	DRM_COLORSPACE_DCIP3,
+	DRM_COLORSPACE_REC2020,
+	DRM_COLORSPACE_MAX,
+};
+
+/* Static HDR metadata to be sent to kernel, matches kernel structure */
+struct drm_hdr_metadata_static {
+	uint8_t eotf;
+	uint8_t metadata_type;
+	struct {
+		uint16_t x, y;
+	} display_primaries[3];
+	struct {
+		uint16_t x, y;
+	} white_point;
+	uint16_t max_display_mastering_luminance;
+	uint16_t min_display_mastering_luminance;
+	uint16_t max_cll;
+	uint16_t max_fall;
+};
+
 struct drm_connector {
 	struct drm_backend *backend;
 
@@ -507,6 +540,12 @@ struct drm_head {
 	struct drm_connector connector;
 
 	struct drm_edid edid;
+
+	/* Display's static HDR metadata */
+	struct drm_edid_hdr_metadata_static *hdr_md;
+
+	/* Display's supported color spaces */
+	uint32_t clrspaces;
 
 	struct backlight *backlight;
 
