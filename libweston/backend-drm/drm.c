@@ -1254,12 +1254,23 @@ drm_output_attach_head(struct weston_output *output_base,
 		       struct weston_head *head_base)
 {
 	struct drm_backend *b = to_drm_backend(output_base->compositor);
+	struct drm_head *head = NULL;
 
 	if (wl_list_length(&output_base->head_list) >= MAX_CLONED_CONNECTORS)
 		return -1;
 
 	if (!output_base->enabled)
 		return 0;
+
+	/* If we already have a head attached to this output and if the head has
+	 * HDR capabilities, then don't attach any other head */
+
+	if (wl_list_length(&output_base->head_list) == 1) {
+		head = to_drm_head(container_of(output_base->head_list.next,
+						struct weston_head, output_link));
+		if (head->hdr_md)
+			return -1;
+	}
 
 	/* XXX: ensure the configuration will work.
 	 * This is actually impossible without major infrastructure
