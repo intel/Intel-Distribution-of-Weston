@@ -1626,12 +1626,18 @@ gl_renderer_repaint_output(struct weston_output *output,
 	pixman_region32_t total_damage;
 	enum gl_border_status border_status = BORDER_STATUS_CLEAN;
 	struct weston_paint_node *pnode;
+	pixman_region32_t full_damage;
+	pixman_region32_t *repaint_damage, *repaint_texture_damage;
 
 	assert(output->from_blend_to_output_by_backend ||
 	       output->from_blend_to_output == NULL || shadow_exists(go));
 
 	if (use_output(output) < 0)
 		return;
+
+	pixman_region32_init_rect(&full_damage, 0, 0,
+				  output->current_mode->width,
+				  output->current_mode->height);
 
 	/* Clear the used_in_output_repaint flag, so that we can properly track
 	 * which surfaces were used in this output repaint. */
@@ -1699,7 +1705,12 @@ gl_renderer_repaint_output(struct weston_output *output,
 	/* Update previous_damage using buffer_age (if available), and store
 	 * current damaged region for future use. */
 	output_get_damage(output, &previous_damage, &border_status);
-	output_rotate_damage(output, output_damage, go->border_status);
+
+	if (go->hdr_state_changed) {
+		output_rotate_damage(output, &full_damage, go->border_status);
+	} else {
+		output_rotate_damage(output, output_damage, go->border_status);
+	}
 
 	/* Redraw both areas which have changed since we last used this buffer,
 	 * as well as the areas we now want to repaint, to make sure the
@@ -1723,19 +1734,33 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	if (shadow_exists(go)) {
 		/* Repaint into shadow. */
+		if (go->hdr_state_changed) {
+			repaint_damage = &full_damage;
+			repaint_texture_damage = &full_damage;
+		} else {
+			repaint_damage = output_damage;
+			repaint_texture_damage = &total_damage;
+		}
+
 		if (compositor->test_data.test_quirks.gl_force_full_redraw_of_shadow_fb)
 			repaint_views(output, &output->region);
 		else
-			repaint_views(output, output_damage);
+			repaint_views(output, repaint_damage);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
 			   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
 			   output->current_mode->width,
 			   output->current_mode->height);
-		blit_shadow_to_output(output, &total_damage);
+		blit_shadow_to_output(output, repaint_texture_damage);
 	} else {
-		repaint_views(output, &total_damage);
+		if (go->hdr_state_changed) {
+			repaint_damage = &full_damage;
+		} else {
+			repaint_damage = &total_damage;
+		}
+
+		repaint_views(output, repaint_damage);
 	}
 
 	pixman_region32_fini(&total_damage);
@@ -1783,6 +1808,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 	update_buffer_release_fences(compositor, output);
 
 	gl_renderer_garbage_collect_programs(gr);
+	go->hdr_state_changed = false;
+	pixman_region32_fini(&full_damage);
 }
 
 static int
