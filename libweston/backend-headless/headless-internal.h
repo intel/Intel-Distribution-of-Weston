@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <stdbool.h>
 #include <drm_fourcc.h>
@@ -12,8 +13,16 @@
 #include <libweston/backend.h>
 #include <libweston/backend-headless.h>
 
+#include <xf86drm.h>
+#include <xf86drmMode.h>
+#include <drm_fourcc.h>
+
 #ifdef BUILD_HEADLESS_GBM
 #include <gbm.h>
+#endif
+
+#ifdef BUILD_HEADLESS_VIRTUAL
+#include <libweston/backend-drm.h>
 #endif
 
 #include "shared/helpers.h"
@@ -76,7 +85,15 @@ struct headless_output {
 	uint32_t gbm_bo_flags;
 
 	struct headless_fb *prev_fb, *curr_fb;
+
+	bool virtual;
+#ifdef BUILD_HEADLESS_VIRTUAL
+	submit_frame_cb virtual_submit_frame;
+#endif
 };
+
+int
+finish_frame_handler(void *data);
 
 static const uint32_t headless_formats[] = {
 	DRM_FORMAT_XRGB8888,
@@ -119,7 +136,7 @@ headless_fb_get_from_bo(struct gbm_bo *bo, struct headless_backend *b);
 
 int
 headless_output_repaint_gbm(struct headless_output *output,
-			    pixman_region32_t *damage);
+                            pixman_region32_t *damage);
 
 int
 headless_gl_renderer_init_gbm(struct headless_backend *b);
@@ -160,7 +177,7 @@ headless_fb_get_from_bo(struct gbm_bo *bo, struct headless_backend *b)
 
 inline static int
 headless_output_repaint_gbm(struct headless_output *output,
-			     pixman_region32_t *damage);
+                            pixman_region32_t *damage);
 {
 	return 0;
 }
@@ -180,5 +197,16 @@ headless_output_enable_gl_gbm(struct headless_output *output)
 inline static void
 headless_output_disable_gl_gbm(struct headless_output *output)
 {
+}
+#endif
+
+#ifdef BUILD_HEADLESS_VIRTUAL
+int
+headless_backend_init_virtual_output_api(struct weston_compositor *ec);
+#else
+inline static int
+headless_backend_init_virtual_output_api(struct weston_compositor *ec)
+{
+	return 0;
 }
 #endif

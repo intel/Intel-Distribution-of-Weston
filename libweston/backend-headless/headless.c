@@ -69,7 +69,7 @@ headless_output_start_repaint_loop(struct weston_output *output)
 	return 0;
 }
 
-static int
+int
 finish_frame_handler(void *data)
 {
 	struct headless_output *output = data;
@@ -199,7 +199,8 @@ headless_output_repaint_gbm(struct headless_output *output,
 	pixman_region32_subtract(&compositor->primary_plane.damage,
 				 &compositor->primary_plane.damage, damage);
 
-	wl_event_source_timer_update(output->finish_frame_timer, 16);
+	if (!output->virtual)
+		wl_event_source_timer_update(output->finish_frame_timer, 16);
 
 	return 0;
 }
@@ -650,6 +651,12 @@ headless_backend_create(struct weston_compositor *compositor,
 
 	if (ret < 0) {
 		weston_log("Failed to register output API.\n");
+		goto err_input;
+	}
+
+	ret = headless_backend_init_virtual_output_api(compositor);
+	if (ret < 0) {
+		weston_log("Failed to register virtual output API.\n");
 		goto err_input;
 	}
 

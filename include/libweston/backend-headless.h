@@ -33,6 +33,9 @@ extern "C" {
 #include <stdint.h>
 
 #include <libweston/libweston.h>
+#include <libweston/backend.h>
+#include <libweston/backend-drm.h>
+#include <libweston/plugin-registry.h>
 
 #define WESTON_HEADLESS_BACKEND_CONFIG_VERSION 2
 
@@ -48,6 +51,18 @@ struct weston_headless_backend_config {
 	/** Whether to use the GL renderer with GBM */
 	bool use_gbm;
 };
+
+#define WESTON_HEADLESS_VIRTUAL_OUTPUT_API_NAME "weston_headless_virtual_output_api_v1"
+
+static inline const struct weston_drm_virtual_output_api *
+weston_headless_virtual_output_get_api(struct weston_compositor *compositor)
+{
+	const void *api;
+	api = weston_plugin_api_get(compositor,
+				    WESTON_HEADLESS_VIRTUAL_OUTPUT_API_NAME,
+				    sizeof(struct weston_drm_virtual_output_api));
+	return (const struct weston_drm_virtual_output_api *)api;
+}
 
 #ifdef  __cplusplus
 }
