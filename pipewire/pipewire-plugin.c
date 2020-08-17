@@ -245,10 +245,11 @@ pipewire_output_fence_sync_handler(int fd, uint32_t mask, void *data)
 
 static int
 pipewire_output_submit_frame(struct weston_output *base_output, int fd,
-			     int stride, struct drm_fb *drm_buffer)
+			     int stride, void *buffer)
 {
 	struct pipewire_output *output = lookup_pipewire_output(base_output);
 	struct weston_pipewire *pipewire = output->pipewire;
+	struct drm_fb *drm_buffer = buffer;
 	const struct weston_drm_virtual_output_api *api =
 		pipewire->virtual_output_api;
 	struct wl_event_loop *loop;

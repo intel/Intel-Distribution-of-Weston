@@ -92,9 +92,8 @@ weston_drm_output_get_api(struct weston_compositor *compositor)
 
 #define WESTON_DRM_VIRTUAL_OUTPUT_API_NAME "weston_drm_virtual_output_api_v1"
 
-struct drm_fb;
 typedef int (*submit_frame_cb)(struct weston_output *output, int fd,
-			       int stride, struct drm_fb *buffer);
+			       int stride, void *buffer);
 
 struct weston_drm_virtual_output_api {
 	/** Create virtual output.
@@ -142,7 +141,7 @@ struct weston_drm_virtual_output_api {
 	int (*get_fence_sync_fd)(struct weston_output *output);
 
 	/** Notify that the caller has finished using buffer */
-	void (*buffer_released)(struct drm_fb *fb);
+	void (*buffer_released)(void *fb);
 
 	/** Notify finish frame
 	 * This function allows the output repainting mechanism to advance to

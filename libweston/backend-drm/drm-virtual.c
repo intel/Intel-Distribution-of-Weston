@@ -106,9 +106,10 @@ drm_virtual_output_start_repaint_loop(struct weston_output *output_base)
 
 static int
 drm_virtual_output_submit_frame(struct drm_output *output,
-				struct drm_fb *fb)
+				void *_fb)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_fb* fb = _fb;
 	int fd, ret;
 
 	assert(fb->num_planes == 1);
@@ -318,8 +319,10 @@ drm_virtual_output_get_fence_fd(struct weston_output *output_base)
 }
 
 static void
-drm_virtual_output_buffer_released(struct drm_fb *fb)
+drm_virtual_output_buffer_released(void *_fb)
 {
+	struct drm_fb* fb = _fb;
+
 	drm_fb_unref(fb);
 }
 
