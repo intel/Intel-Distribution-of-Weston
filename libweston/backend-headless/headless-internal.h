@@ -11,6 +11,11 @@
 #include <libweston/libweston.h>
 #include <libweston/backend.h>
 #include <libweston/backend-headless.h>
+
+#ifdef BUILD_HEADLESS_GBM
+#include <gbm.h>
+#endif
+
 #include "shared/helpers.h"
 #include "linux-explicit-synchronization.h"
 #include "linux-dmabuf.h"
@@ -21,6 +26,7 @@ enum headless_renderer_type {
 	HEADLESS_NOOP,
 	HEADLESS_PIXMAN,
 	HEADLESS_GL,
+	HEADLESS_GL_GBM,
 };
 
 struct headless_backend {
@@ -31,10 +37,30 @@ struct headless_backend {
 	enum headless_renderer_type renderer_type;
 
 	struct gl_renderer_interface *glri;
+
+	int drm_fd;
+	struct gbm_device *gbm;
 };
 
 struct headless_head {
 	struct weston_head base;
+};
+
+struct headless_fb {
+	int refcnt;
+
+	uint32_t handles[4];
+	uint32_t strides[4];
+	int num_planes;
+	uint32_t format;
+	uint64_t modifier;
+	int width, height;
+	int fd;
+	struct weston_buffer_reference buffer_ref;
+	struct weston_buffer_release_reference buffer_release_ref;
+
+	struct gbm_bo *bo;
+	struct gbm_surface *gbm_surface;
 };
 
 struct headless_output {
@@ -44,6 +70,12 @@ struct headless_output {
 	struct wl_event_source *finish_frame_timer;
 	uint32_t *image_buf;
 	pixman_image_t *image;
+
+	struct gbm_surface *gbm_surface;
+	uint32_t gbm_format;
+	uint32_t gbm_bo_flags;
+
+	struct headless_fb *prev_fb, *curr_fb;
 };
 
 static const uint32_t headless_formats[] = {
@@ -69,3 +101,84 @@ to_headless_backend(struct weston_compositor *base)
 	return container_of(base->backend, struct headless_backend, base);
 }
 
+#ifdef BUILD_HEADLESS_GBM
+bool
+gbm_create_device_headless(struct headless_backend *b);
+
+struct headless_fb*
+headless_fb_ref(struct headless_fb *fb);
+
+void
+headless_fb_unref(struct headless_fb *fb);
+
+void
+headless_fb_destroy_gbm(struct gbm_bo *bo, void *data);
+
+struct headless_fb *
+headless_fb_get_from_bo(struct gbm_bo *bo, struct headless_backend *b);
+
+int
+headless_output_repaint_gbm(struct headless_output *output,
+			    pixman_region32_t *damage);
+
+int
+headless_gl_renderer_init_gbm(struct headless_backend *b);
+
+int
+headless_output_enable_gl_gbm(struct headless_output *output);
+
+void
+headless_output_disable_gl_gbm(struct headless_output *output);
+#else
+inline static bool
+gbm_create_device_headless(struct headless_backend *b)
+{
+	return false;
+}
+
+inline static struct headless_fb*
+headless_fb_ref(struct headless_fb *fb)
+{
+	return NULL;
+}
+
+inline static void
+headless_fb_unref(struct headless_fb *fb)
+{
+}
+
+inline static void
+headless_fb_destroy_gbm(struct gbm_bo *bo, void *data)
+{
+}
+
+inline static struct headless_fb *
+headless_fb_get_from_bo(struct gbm_bo *bo, struct headless_backend *b)
+{
+	return NULL;
+}
+
+inline static int
+headless_output_repaint_gbm(struct headless_output *output,
+			     pixman_region32_t *damage);
+{
+	return 0;
+}
+
+inline static int
+headless_gl_renderer_init_gbm(struct headless_backend *b)
+{
+	return 0;
+}
+
+inline static int
+headless_output_enable_gl_gbm(struct headless_output *output)
+{
+	return 0;
+}
+
+inline static void
+headless_output_disable_gl_gbm(struct headless_output *output)
+{
+}
+#endif

@@ -8,11 +8,19 @@ srcs_headless = [
 	'headless.c',
 	presentation_time_server_protocol_h,
 ]
+
+if get_option('renderer-gl')
+	dep_gbm = dependency('gbm', required: false)
+	if dep_gbm.found()
+	      config_h.set('BUILD_DRM_GBM', '1')
+	endif
+endif
+
 plugin_headless = shared_library(
 	'headless-backend',
 	srcs_headless,
 	include_directories: common_inc,
-	dependencies: [ dep_libweston_private, dep_libdrm_headers ],
+	dependencies: [ dep_libweston_private, dep_libdrm_headers, dep_libdl, dep_gbm],
 	name_prefix: '',
 	install: true,
 	install_dir: dir_module_libweston,

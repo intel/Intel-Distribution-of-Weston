@@ -699,6 +699,7 @@ usage(int error_code)
 		"\tnormal 90 180 270 flipped flipped-90 flipped-180 flipped-270\n"
 		"  --use-pixman\t\tUse the pixman (CPU) renderer (default: no rendering)\n"
 		"  --use-gl\t\tUse the GL renderer (default: no rendering)\n"
+		"  --use-gbm\t\tUse the GL renderer with GBM (default: no rendering)\n"
 		"  --no-outputs\t\tDo not create any virtual outputs\n"
 		"\n");
 #endif
@@ -2594,6 +2595,8 @@ load_headless_backend(struct weston_compositor *c,
 				       false);
 	weston_config_section_get_bool(section, "use-gl", &config.use_gl,
 				       false);
+	weston_config_section_get_bool(section, "use-gbm", &config.use_gbm,
+				       false);
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
@@ -2601,6 +2604,7 @@ load_headless_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
 		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &config.use_gl },
+		{ WESTON_OPTION_BOOLEAN, "use-gbm", 0, &config.use_gbm },
 		{ WESTON_OPTION_STRING, "transform", 0, &transform },
 		{ WESTON_OPTION_BOOLEAN, "no-outputs", 0, &no_outputs },
 	};
