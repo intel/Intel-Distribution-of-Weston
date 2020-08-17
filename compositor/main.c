@@ -2643,6 +2643,8 @@ load_headless_backend(struct weston_compositor *c,
 			return -1;
 	}
 
+	load_remoting(c, wc);
+
 	return 0;
 }
 

@@ -45,6 +45,7 @@
 
 #include "remoting-plugin.h"
 #include <libweston/backend-drm.h>
+#include <libweston/backend-headless.h>
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
 #include "backend.h"
@@ -124,7 +125,7 @@ struct remoted_output {
 
 struct mem_free_cb_data {
 	struct remoted_output *output;
-	struct drm_fb *output_buffer;
+	void *output_buffer;
 };
 
 struct gst_frame_buffer_data {
@@ -562,7 +563,7 @@ remoting_output_fence_sync_handler(int fd, uint32_t mask, void *data)
 
 static int
 remoting_output_frame(struct weston_output *output_base, int fd, int stride,
-		      struct drm_fb *output_buffer)
+		      void *output_buffer)
 {
 	struct remoted_output *output = lookup_remoted_output(output_base);
 	struct weston_remoting *remoting = output->remoting;
@@ -922,11 +923,9 @@ weston_module_init(struct weston_compositor *compositor)
 {
 	int ret;
 	struct weston_remoting *remoting;
-	const struct weston_drm_virtual_output_api *api =
+	const struct weston_drm_virtual_output_api *headless_api = NULL;
+	const struct weston_drm_virtual_output_api *drm_api =
 		weston_drm_virtual_output_get_api(compositor);
-
-	if (!api)
-		return -1;
 
 	remoting = zalloc(sizeof *remoting);
 	if (!remoting)
@@ -939,7 +938,16 @@ weston_module_init(struct weston_compositor *compositor)
 		return 0;
 	}
 
-	remoting->virtual_output_api = api;
+	remoting->virtual_output_api = drm_api;
+	if (!remoting->virtual_output_api) {
+		headless_api = weston_headless_virtual_output_get_api(compositor);
+
+		if (!headless_api)
+			return -1;
+
+		remoting->virtual_output_api = headless_api;
+	}
+
 	remoting->compositor = compositor;
 	wl_list_init(&remoting->output_list);
 
