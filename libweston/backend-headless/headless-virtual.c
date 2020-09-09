@@ -28,7 +28,7 @@ headless_virtual_output_submit_frame(struct headless_output *output,
 	int fd, ret;
 
 	assert(fb->num_planes == 1);
-	ret = drmPrimeHandleToFD(b->drm_fd, fb->handles[0], DRM_CLOEXEC, &fd);
+	ret = drmPrimeHandleToFD(b->drm_fd, fb->handles[0], DRM_CLOEXEC | DRM_RDWR, &fd);
 	if (ret) {
 		weston_log("drmPrimeHandleFD failed, errno=%d\n", errno);
 		return -1;
