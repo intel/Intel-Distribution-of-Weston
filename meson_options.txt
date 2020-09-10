@@ -100,6 +100,13 @@ option(
 )
 
 option(
+	'lg-remoting',
+	type: 'boolean',
+	value: true,
+	description: 'Virtual remote output with Looking Glass on headless backend'
+)
+
+option(
 	'pipewire',
 	type: 'boolean',
 	value: true,

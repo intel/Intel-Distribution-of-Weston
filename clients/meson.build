@@ -445,6 +445,18 @@ if get_option('shell-desktop')
 	)
 	env_modmap += 'weston-screenshooter=@0@;'.format(exe_shooter.full_path())
 
+	exe_lg = executable(
+		'lg-sample',
+		'lg-sample.c',
+		lg_remote_client_protocol_h,
+		lg_remote_protocol_c,
+		include_directories: common_inc,
+		dependencies: dep_toytoolkit,
+		install_dir: get_option('bindir'),
+		install: true
+	)
+	env_modmap += 'lg-sample=@0@;'.format(exe_lg.full_path())
+
 	exe_shell_desktop = executable(
 		'weston-desktop-shell',
 		'desktop-shell.c',

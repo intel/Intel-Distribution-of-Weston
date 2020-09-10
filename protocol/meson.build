@@ -18,6 +18,7 @@ generated_protocols = [
 	[ 'ivi-application', 'internal' ],
 	[ 'ivi-hmi-controller', 'internal' ],
 	[ 'fullscreen-shell', 'v1' ],
+	[ 'lg-remote', 'internal' ],
 	[ 'linux-dmabuf', 'v1' ],
 	[ 'linux-explicit-synchronization', 'v1' ],
 	[ 'presentation-time', 'stable' ],
