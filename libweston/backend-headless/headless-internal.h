@@ -25,6 +25,9 @@
 #include <libweston/backend-drm.h>
 #endif
 
+#include <libudev.h>
+#include "libinput-seat.h"
+
 #include "shared/helpers.h"
 #include "linux-explicit-synchronization.h"
 #include "linux-dmabuf.h"
@@ -49,6 +52,10 @@ struct headless_backend {
 
 	int drm_fd;
 	struct gbm_device *gbm;
+
+	struct udev *udev;
+	struct udev_input input;
+	struct wl_listener session_listener;
 };
 
 struct headless_head {

@@ -50,6 +50,15 @@ struct weston_headless_backend_config {
 
 	/** Whether to use the GL renderer with GBM */
 	bool use_gbm;
+
+	/** Callback used to configure input devices.
+	 *
+	 * This function will be called by the backend when a new input device
+	 * needs to be configured.
+	 * If NULL the device will use the default configuration.
+	 */
+	void (*configure_device)(struct weston_compositor *compositor,
+				 struct libinput_device *device);
 };
 
 #define WESTON_HEADLESS_VIRTUAL_OUTPUT_API_NAME "weston_headless_virtual_output_api_v1"

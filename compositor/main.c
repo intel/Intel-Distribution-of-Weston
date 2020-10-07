@@ -2621,6 +2621,7 @@ load_headless_backend(struct weston_compositor *c,
 
 	config.base.struct_version = WESTON_HEADLESS_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_headless_backend_config);
+	config.configure_device = configure_input_device;
 
 	wet_set_simple_head_configurator(c, headless_backend_output_configure);
 

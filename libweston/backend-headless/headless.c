@@ -41,6 +41,10 @@
 #include <xf86drmMode.h>
 #include <drm_fourcc.h>
 
+#include <libudev.h>
+#include "libinput-seat.h"
+#include "launcher-util.h"
+
 #include <libweston/libweston.h>
 #include <libweston/backend-headless.h>
 #include "headless-internal.h"
@@ -57,6 +61,8 @@
 #include "linux-dmabuf.h"
 #include "presentation-time-server-protocol.h"
 #include <libweston/windowed-output-api.h>
+
+static const char default_seat[] = "seat0";
 
 static int
 headless_output_start_repaint_loop(struct weston_output *output)
@@ -523,10 +529,15 @@ headless_destroy(struct weston_compositor *ec)
 	struct headless_backend *b = to_headless_backend(ec);
 	struct weston_head *base, *next;
 
+	udev_input_destroy(&b->input);
+
 	weston_compositor_shutdown(ec);
 
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
 		headless_head_destroy(to_headless_head(base));
+
+	weston_launcher_destroy(ec->launcher);
+        udev_unref(b->udev);
 
 	free(b);
 }
@@ -579,12 +590,35 @@ static const struct weston_windowed_output_api api = {
 	headless_head_create,
 };
 
+static void
+session_notify(struct wl_listener *listener, void *data)
+{
+	struct weston_compositor *compositor = data;
+	struct headless_backend *b = to_headless_backend(compositor);
+
+	if (compositor->session_active) {
+
+		weston_log("activating session\n");
+		weston_compositor_wake(compositor);
+		weston_compositor_damage_all(compositor);
+		udev_input_enable(&b->input);
+
+	} else {
+
+		weston_log("deactivating session\n");
+		udev_input_disable(&b->input);
+		weston_compositor_offscreen(compositor);
+	}
+}
+
 static struct headless_backend *
 headless_backend_create(struct weston_compositor *compositor,
 			struct weston_headless_backend_config *config)
 {
 	struct headless_backend *b;
 	int ret;
+
+	const char *seat_id = default_seat;
 
 	b = zalloc(sizeof *b);
 	if (b == NULL)
@@ -596,12 +630,29 @@ headless_backend_create(struct weston_compositor *compositor,
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
 		goto err_free;
 
+	b->udev = udev_new();
+	if (b->udev == NULL) {
+		weston_log("Failed to initialize udev context.\n");
+		goto err_free;
+	}
+
+	b->session_listener.notify = session_notify;
+	wl_signal_add(&compositor->session_signal,
+		      &b->session_listener);
+	compositor->launcher =
+		weston_launcher_connect(compositor, 1, seat_id, false);
+	if (!compositor->launcher) {
+		weston_log("fatal: headless backend should be run using "
+			   "weston-launch binary.\n");
+		goto err_udev;
+	}
+
 	b->base.destroy = headless_destroy;
 	b->base.create_output = headless_output_create;
 
 	if (config->use_pixman && config->use_gl) {
 		weston_log("Error: cannot use both Pixman *and* GL renderers.\n");
-		goto err_free;
+		goto err_launcher;
 	}
 
 	if (config->use_gl && config->use_gbm)
@@ -632,7 +683,14 @@ headless_backend_create(struct weston_compositor *compositor,
 	}
 
 	if (ret < 0)
-		goto err_input;
+		goto err_launcher;
+
+	if (udev_input_init(&b->input,
+	    compositor, b->udev, seat_id,
+	    config->configure_device) < 0) {
+		weston_log("SA: failed to create input devices\n");
+		goto err_launcher;
+	}
 
 	if (compositor->renderer->import_dmabuf) {
 		if (linux_dmabuf_setup(compositor) < 0) {
@@ -664,6 +722,13 @@ headless_backend_create(struct weston_compositor *compositor,
 
 err_input:
 	weston_compositor_shutdown(compositor);
+
+err_udev_input:
+	udev_input_destroy(&b->input);
+err_launcher:
+	weston_launcher_destroy(compositor->launcher);
+err_udev:
+	udev_unref(b->udev);
 err_free:
 	free(b);
 	return NULL;

@@ -290,6 +290,8 @@ launcher_direct_connect(struct weston_launcher **out, struct weston_compositor *
 {
 	struct launcher_direct *launcher;
 
+	weston_log("SA: launcher_direct_connect \n");
+
 	if (geteuid() != 0)
 		return -EINVAL;
 
