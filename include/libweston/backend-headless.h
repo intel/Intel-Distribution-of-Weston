@@ -51,6 +51,9 @@ struct weston_headless_backend_config {
 	/** Whether to use the GL renderer with GBM */
 	bool use_gbm;
 
+	/** The tty to be used. Set to 0 to use the current tty. */
+        int tty;
+
 	/** Callback used to configure input devices.
 	 *
 	 * This function will be called by the backend when a new input device

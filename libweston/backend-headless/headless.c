@@ -640,7 +640,7 @@ headless_backend_create(struct weston_compositor *compositor,
 	wl_signal_add(&compositor->session_signal,
 		      &b->session_listener);
 	compositor->launcher =
-		weston_launcher_connect(compositor, 1, seat_id, false);
+		weston_launcher_connect(compositor, config->tty, seat_id, false);
 	if (!compositor->launcher) {
 		weston_log("fatal: headless backend should be run using "
 			   "weston-launch binary.\n");

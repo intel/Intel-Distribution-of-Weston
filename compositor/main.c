@@ -701,6 +701,7 @@ usage(int error_code)
 		"  --use-gl\t\tUse the GL renderer (default: no rendering)\n"
 		"  --use-gbm\t\tUse the GL renderer with GBM (default: no rendering)\n"
 		"  --no-outputs\t\tDo not create any virtual outputs\n"
+		"  --tty=TTY\t\tThe tty to use\n"
 		"\n");
 #endif
 
@@ -2605,6 +2606,7 @@ load_headless_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
 		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &config.use_gl },
 		{ WESTON_OPTION_BOOLEAN, "use-gbm", 0, &config.use_gbm },
+		{ WESTON_OPTION_INTEGER, "tty", 0, &config.tty },
 		{ WESTON_OPTION_STRING, "transform", 0, &transform },
 		{ WESTON_OPTION_BOOLEAN, "no-outputs", 0, &no_outputs },
 	};
