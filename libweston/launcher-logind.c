@@ -731,8 +731,6 @@ launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *
 	char *t;
 	int r;
 
-	weston_log("SA: launcher_logind_connect \n");
-
 	wl = zalloc(sizeof(*wl));
 	if (wl == NULL) {
 		r = -ENOMEM;

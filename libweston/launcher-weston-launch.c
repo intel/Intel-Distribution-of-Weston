@@ -274,8 +274,6 @@ launcher_weston_launch_connect(struct weston_launcher **out, struct weston_compo
 	struct launcher_weston_launch *launcher;
 	struct wl_event_loop *loop;
 
-	weston_log("SA: launcher_weston_launch_connect \n");
-
 	launcher = malloc(sizeof *launcher);
 	if (launcher == NULL)
 		return -ENOMEM;

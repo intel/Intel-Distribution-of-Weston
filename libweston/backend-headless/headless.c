@@ -537,7 +537,7 @@ headless_destroy(struct weston_compositor *ec)
 		headless_head_destroy(to_headless_head(base));
 
 	weston_launcher_destroy(ec->launcher);
-        udev_unref(b->udev);
+	udev_unref(b->udev);
 
 	free(b);
 }
@@ -619,6 +619,11 @@ headless_backend_create(struct weston_compositor *compositor,
 	int ret;
 
 	const char *seat_id = default_seat;
+	const char *session_seat;
+
+	session_seat = getenv("XDG_SEAT");
+	if (session_seat)
+		seat_id = session_seat;
 
 	b = zalloc(sizeof *b);
 	if (b == NULL)
@@ -688,7 +693,6 @@ headless_backend_create(struct weston_compositor *compositor,
 	if (udev_input_init(&b->input,
 	    compositor, b->udev, seat_id,
 	    config->configure_device) < 0) {
-		weston_log("SA: failed to create input devices\n");
 		goto err_launcher;
 	}
 
@@ -722,8 +726,6 @@ headless_backend_create(struct weston_compositor *compositor,
 
 err_input:
 	weston_compositor_shutdown(compositor);
-
-err_udev_input:
 	udev_input_destroy(&b->input);
 err_launcher:
 	weston_launcher_destroy(compositor->launcher);

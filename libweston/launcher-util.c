@@ -50,14 +50,11 @@ weston_launcher_connect(struct weston_compositor *compositor, int tty,
 {
 	const struct launcher_interface **it;
 
-	weston_log("SA: weston_launcher_connect \n");
-
 	for (it = ifaces; *it != NULL; it++) {
 		const struct launcher_interface *iface = *it;
 		struct weston_launcher *launcher;
 
 		if (iface->connect(&launcher, compositor, tty, seat_id, sync_drm) == 0) {
-			weston_log("SA: weston_launcher_connect return launcher\n");
 			return launcher;
 		}
 	}
