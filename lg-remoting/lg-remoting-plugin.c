@@ -139,12 +139,16 @@ remoting_output_finish_frame_handler(void *data)
 		= output->remoting->virtual_output_api;
 	struct timespec now;
 	int64_t msec;
+	struct wl_resource *resource;
 
 	if (output->submitted_frame) {
 		struct weston_compositor *c = output->remoting->compositor;
 		output->submitted_frame = false;
 		weston_compositor_read_presentation_clock(c, &now);
 		api->finish_frame(output->output, &now, 0);
+		wl_resource_for_each(resource, &output->remoting->resource_list) {
+			lg_remote_send_frame_done(resource);
+		}
 	}
 
 	msec = millihz_to_nsec(output->output->current_mode->refresh) / 1000000;

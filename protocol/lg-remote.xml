@@ -7,6 +7,8 @@
     </request>
     <event name="done">
     </event>
+    <event name="frame_done">
+    </event>
   </interface>
 
 </protocol>

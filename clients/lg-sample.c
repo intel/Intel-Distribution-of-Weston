@@ -117,8 +117,15 @@ lg_remote_done(void *data, struct lg_remote *lg)
 	lg_data->buffer_copy_done = 1;
 }
 
+static void
+lg_remote_frame_done(void *data, struct lg_remote *lg)
+{
+
+}
+
 static const struct lg_remote_listener lg_listener = {
-	lg_remote_done
+	lg_remote_done,
+	lg_remote_frame_done,
 };
 
 static void
