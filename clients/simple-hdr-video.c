@@ -321,7 +321,7 @@ subtitle_redraw_handler(struct widget *widget, void *data)
 	widget_get_allocation(sub->widget, &allocation);
 	buffer = subtitle_next_buffer(sub);
 
-	if (!buffer->dev->map_bo(buffer)) {
+	if (!buffer || !buffer->dev->map_bo(buffer)) {
 		fprintf(stderr, "map_bo failed\n");
 		return;
 	}
@@ -454,7 +454,7 @@ static AVFrame *
 demux_and_decode(struct video *s)
 {
 	AVFrame *frame;
-	bool ret;
+	bool ret = false;
 
 	frame = av_frame_alloc();
 	if (!frame)
@@ -960,8 +960,15 @@ drm_device_init(struct buffer *buf)
 
 	drmVersionPtr version = drmGetVersion(buf->drm_fd);
 
+	if (!dev)
+		return 0;
+
 	dev->fd = buf->drm_fd;
 	dev->name = strdup(version->name);
+	if (!dev->name) {
+		free(dev);
+		return 0;
+	}
 	if (0) {
 		/* nothing */
 	}

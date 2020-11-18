@@ -1174,10 +1174,12 @@ drm_head_prepare_color_state(struct drm_backend *b,
 	struct drm_conn_color_state *target;
 	enum drm_colorspace target_cs = DRM_COLORSPACE_REC709;
 	uint8_t target_eotf = DRM_EOTF_SDR_TRADITIONAL;
-	uint16_t display_cs = drm_head->clrspaces & EDID_CS_HDR_CS_BASIC;
+	uint16_t display_cs;
 
 	if (!drm_head)
 		return 0;
+
+	display_cs = drm_head->clrspaces & EDID_CS_HDR_CS_BASIC;
 
 	/* This is an active HDR session, so the state is already set */
 	if (output->output_is_hdr)
