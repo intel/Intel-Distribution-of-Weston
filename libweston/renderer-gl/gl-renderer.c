@@ -104,6 +104,9 @@ struct gl_output_state {
 	struct wl_list timeline_render_point_list;
 
 	struct gl_fbo_texture shadow;
+	enum weston_colorspace_enums target_colorspace;
+	struct weston_hdr_metadata *target_hdr_metadata;
+	bool hdr_state_changed;
 };
 
 enum buffer_type {
@@ -3399,6 +3402,10 @@ gl_renderer_output_create(struct weston_output *output,
 
 	output->renderer_state = go;
 
+	go->target_colorspace = WESTON_CS_BT709;
+	go->target_hdr_metadata = NULL;
+	go->hdr_state_changed = false;
+
 	return 0;
 }
 
@@ -3613,6 +3620,35 @@ gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
 	return 0;
 }
 
+static void
+gl_renderer_set_output_colorspace(struct weston_output *output,
+				  uint32_t colorspace)
+{
+	struct gl_output_state *go = get_output_state(output);
+	if (go->target_colorspace == colorspace)
+		return;
+
+	go->target_colorspace = colorspace;
+	go->hdr_state_changed = true;
+}
+
+static void
+gl_renderer_set_output_hdr_metadata(struct weston_output *output,
+				    struct weston_hdr_metadata *hdr_metadata)
+{
+	struct gl_output_state *go = get_output_state(output);
+
+	if (go->target_hdr_metadata == hdr_metadata)
+		return;
+
+	if (go->target_hdr_metadata && hdr_metadata &&
+	    !memcmp(go->target_hdr_metadata, hdr_metadata, sizeof(*hdr_metadata)))
+		return;
+
+	go->target_hdr_metadata = hdr_metadata;
+	go->hdr_state_changed = true;
+}
+
 static int
 create_default_dmabuf_feedback(struct weston_compositor *ec,
 			       struct gl_renderer *gr)
@@ -3659,6 +3695,8 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->compositor = ec;
 	wl_list_init(&gr->shader_list);
 	gr->platform = options->egl_platform;
+	gr->base.set_output_colorspace = gl_renderer_set_output_colorspace;
+	gr->base.set_output_hdr_metadata = gl_renderer_set_output_hdr_metadata;
 
 	gr->shader_scope = gl_shader_scope_create(gr);
 	if (!gr->shader_scope)
