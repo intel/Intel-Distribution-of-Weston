@@ -185,6 +185,7 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_NON_DESKTOP,
 	WDRM_CONNECTOR_CONTENT_PROTECTION,
 	WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
+	WDRM_CONNECTOR_HDR_METADATA,
 	WDRM_CONNECTOR_PANEL_ORIENTATION,
 	WDRM_CONNECTOR__COUNT
 };
@@ -534,6 +535,16 @@ struct drm_writeback {
 	struct drm_connector connector;
 };
 
+/* Connector's color correction status */
+struct drm_conn_color_state {
+	bool changed;
+	bool output_is_hdr;
+	uint8_t o_cs;
+	uint8_t o_eotf;
+	uint32_t hdr_md_blob_id;
+	struct drm_hdr_metadata_static o_md;
+};
+
 struct drm_head {
 	struct weston_head base;
 	struct drm_backend *backend;
@@ -546,6 +557,9 @@ struct drm_head {
 
 	/* Display's supported color spaces */
 	uint32_t clrspaces;
+
+	/* Connector's color correction status */
+	struct drm_conn_color_state color_state;
 
 	struct backlight *backlight;
 

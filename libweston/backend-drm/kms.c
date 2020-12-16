@@ -138,6 +138,7 @@ const struct drm_property_info connector_props[] = {
 		.enum_values = hdcp_content_type_enums,
 		.num_enum_values = WDRM_HDCP_CONTENT_TYPE__COUNT,
 	},
+	[WDRM_CONNECTOR_HDR_METADATA] = { .name = "HDR_OUTPUT_METADATA", },
 	[WDRM_CONNECTOR_PANEL_ORIENTATION] = {
 		.name = "panel orientation",
 		.enum_values = panel_orientation_enums,
@@ -922,6 +923,36 @@ drm_connector_set_hdcp_property(struct drm_connector *connector,
 }
 
 static int
+connector_add_color_correction(drmModeAtomicReq *req,
+		struct drm_head *head, uint32_t *flags)
+{
+	int ret;
+	struct drm_conn_color_state *conn_state = &head->color_state;
+
+	if (!conn_state->changed)
+		return 0;
+
+	if ((int)conn_state->hdr_md_blob_id == -1)
+		return 0;
+
+	ret = connector_add_prop(req,
+				 &head->connector,
+				 WDRM_CONNECTOR_HDR_METADATA,
+				 conn_state->hdr_md_blob_id);
+	if (ret != 0) {
+		weston_log("Failed to apply output HDR metadata\n");
+		return ret;
+	}
+
+	*flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+
+	if (!(*flags & DRM_MODE_ATOMIC_TEST_ONLY))
+		conn_state->changed = false;
+
+	return 0;
+}
+
+static int
 drm_output_apply_state_atomic(struct drm_output_state *state,
 			      drmModeAtomicReq *req,
 			      uint32_t *flags)
@@ -958,6 +989,7 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 			ret |= connector_add_prop(req, &head->connector,
 						  WDRM_CONNECTOR_CRTC_ID,
 						  crtc->crtc_id);
+			ret |= connector_add_color_correction(req, head, flags);
 		}
 	} else {
 		ret |= crtc_add_prop(req, crtc, WDRM_CRTC_MODE_ID, 0);
