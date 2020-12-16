@@ -72,6 +72,27 @@
 #define DRM_PLANE_ZPOS_INVALID_PLANE	0xffffffffffffffffULL
 #endif
 
+/* Colorspace values as per CEA spec */
+#define DRM_MODE_COLORIMETRY_DEFAULT			0
+
+/* CEA 861 Normal Colorimetry options */
+#define DRM_MODE_COLORIMETRY_NO_DATA			0
+#define DRM_MODE_COLORIMETRY_SMPTE_170M_YCC		1
+#define DRM_MODE_COLORIMETRY_BT709_YCC			2
+
+/* CEA 861 Extended Colorimetry Options */
+#define DRM_MODE_COLORIMETRY_XVYCC_601			3
+#define DRM_MODE_COLORIMETRY_XVYCC_709			4
+#define DRM_MODE_COLORIMETRY_SYCC_601			5
+#define DRM_MODE_COLORIMETRY_OPYCC_601			6
+#define DRM_MODE_COLORIMETRY_OPRGB			7
+#define DRM_MODE_COLORIMETRY_BT2020_CYCC		8
+#define DRM_MODE_COLORIMETRY_BT2020_RGB			9
+#define DRM_MODE_COLORIMETRY_BT2020_YCC			10
+/* Additional Colorimetry extension added as part of CTA 861.G */
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65		11
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER		12
+
 /**
  * A small wrapper to print information into the 'drm-backend' debug scope.
  *
@@ -187,6 +208,7 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
 	WDRM_CONNECTOR_HDR_METADATA,
 	WDRM_CONNECTOR_PANEL_ORIENTATION,
+	WDRM_CONNECTOR_OUTPUT_COLORSPACE,
 	WDRM_CONNECTOR__COUNT
 };
 

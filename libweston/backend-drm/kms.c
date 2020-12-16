@@ -112,6 +112,33 @@ struct drm_property_enum_info hdcp_content_type_enums[] = {
 	},
 };
 
+static struct drm_property_enum_info hdmi_clrspace_enums[] = {
+	/* For Default case, driver will set the colorspace */
+	[DRM_MODE_COLORIMETRY_DEFAULT] = { .name = "Default"},
+	/* Standard Definition Colorimetry based on CEA 861 */
+	[DRM_MODE_COLORIMETRY_SMPTE_170M_YCC] = { .name = "SMPTE_170M_YCC"},
+	[DRM_MODE_COLORIMETRY_BT709_YCC] = { .name = "BT709_YCC"},
+	/* Standard Definition Colorimetry based on IEC 61966-2-4 */
+	[DRM_MODE_COLORIMETRY_XVYCC_601] = { .name = "XVYCC_601"},
+	/* High Definition Colorimetry based on IEC 61966-2-4 */
+	[DRM_MODE_COLORIMETRY_XVYCC_709] = { .name = "XVYCC_709"},
+	/* Colorimetry based on IEC 61966-2-1/Amendment 1 */
+	[DRM_MODE_COLORIMETRY_SYCC_601] = { .name = "SYCC_601"},
+	/* Colorimetry based on IEC 61966-2-5 [33] */
+	[DRM_MODE_COLORIMETRY_OPYCC_601] = { .name = "opYCC_601"},
+	/* Colorimetry based on IEC 61966-2-5 */
+	[DRM_MODE_COLORIMETRY_OPRGB] = { .name = "opRGB"},
+	/* Colorimetry based on ITU-R BT.2020 */
+	[DRM_MODE_COLORIMETRY_BT2020_CYCC] = { .name = "BT2020_CYCC"},
+	/* Colorimetry based on ITU-R BT.2020 */
+	[DRM_MODE_COLORIMETRY_BT2020_RGB] = { .name = "BT2020_RGB"},
+	/* Colorimetry based on ITU-R BT.2020 */
+	[DRM_MODE_COLORIMETRY_BT2020_YCC] = { .name = "BT2020_YCC"},
+	/* Added as part of Additional Colorimetry Extension in 861.G */
+	[DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65] = { .name = "DCI-P3_RGB_D65" },
+	[DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER] = { .name = "DCI-P3_RGB_Theater"},
+};
+
 struct drm_property_enum_info panel_orientation_enums[] = {
 	[WDRM_PANEL_ORIENTATION_NORMAL] = { .name = "Normal", },
 	[WDRM_PANEL_ORIENTATION_UPSIDE_DOWN] = { .name = "Upside Down", },
@@ -143,6 +170,11 @@ const struct drm_property_info connector_props[] = {
 		.name = "panel orientation",
 		.enum_values = panel_orientation_enums,
 		.num_enum_values = WDRM_PANEL_ORIENTATION__COUNT,
+	},
+	[WDRM_CONNECTOR_OUTPUT_COLORSPACE] = {
+		.name = "Colorspace",
+		.enum_values = hdmi_clrspace_enums,
+		.num_enum_values = 13,
 	},
 };
 
@@ -922,11 +954,27 @@ drm_connector_set_hdcp_property(struct drm_connector *connector,
 	assert(ret == 0);
 }
 
+/* Return the colorspace values to be going to AVI infoframe */
+static inline uint32_t
+to_kernel_colorspace(uint8_t colorspace)
+{
+	switch(colorspace) {
+	case DRM_COLORSPACE_DCIP3:
+		return DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65;
+	case DRM_COLORSPACE_REC2020:
+		return DRM_MODE_COLORIMETRY_BT2020_RGB;
+	case DRM_COLORSPACE_REC709:
+	default:
+		return DRM_MODE_COLORIMETRY_DEFAULT;
+	}
+}
+
 static int
 connector_add_color_correction(drmModeAtomicReq *req,
 		struct drm_head *head, uint32_t *flags)
 {
 	int ret;
+	uint32_t kernel_cs;
 	struct drm_conn_color_state *conn_state = &head->color_state;
 
 	if (!conn_state->changed)
@@ -945,6 +993,16 @@ connector_add_color_correction(drmModeAtomicReq *req,
 	}
 
 	*flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+
+	kernel_cs = to_kernel_colorspace(conn_state->o_cs);
+	ret = connector_add_prop(req,
+				 &head->connector,
+				 WDRM_CONNECTOR_OUTPUT_COLORSPACE,
+				 kernel_cs);
+	if (ret != 0) {
+		weston_log("Failed to apply output colorspace\n");
+		return ret;
+	}
 
 	if (!(*flags & DRM_MODE_ATOMIC_TEST_ONLY))
 		conn_state->changed = false;
