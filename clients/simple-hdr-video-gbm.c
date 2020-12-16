@@ -304,6 +304,8 @@ subtitle_redraw_handler(struct widget *widget, void *data)
 
 	widget_get_allocation(sub->widget, &allocation);
 	buffer = subtitle_next_buffer(sub);
+	if (!buffer)
+		return;
 
 	buffer->mmap = gbm_bo_map(buffer->bo, 0, 0, buffer->width, buffer->height,
 				  GBM_BO_TRANSFER_WRITE, &dst_stride, &map_data);
@@ -440,7 +442,7 @@ static AVFrame *
 demux_and_decode(struct video *s)
 {
 	AVFrame *frame;
-	bool ret;
+	bool ret = false;
 
 	frame = av_frame_alloc();
 	if (!frame)
@@ -949,6 +951,9 @@ create_dmabuf_buffer(struct app *app, struct buffer *buffer,
 		buffer->cpp = 1;
 		break;
 	default:
+		pixel_format = GBM_FORMAT_XRGB8888;
+		buf_w = width;
+		buf_h = height;
 		buffer->height = height;
 		buffer->cpp = 1;
 	}

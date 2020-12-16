@@ -3891,9 +3891,11 @@ weston_surface_commit_state(struct weston_surface *surface,
 		if (!surface->hdr_metadata)
 			surface->hdr_metadata =
 				zalloc(sizeof(struct weston_hdr_metadata));
-		memcpy(surface->hdr_metadata,
-		       surface->pending.hdr_metadata,
-		       sizeof(struct weston_hdr_metadata));
+
+		if (surface->hdr_metadata)
+			memcpy(surface->hdr_metadata,
+			       surface->pending.hdr_metadata,
+			       sizeof(struct weston_hdr_metadata));
 	} else if (surface->hdr_metadata) {
 		free(surface->hdr_metadata);
 		surface->hdr_metadata = NULL;

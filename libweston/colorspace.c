@@ -62,6 +62,9 @@ colorspace_set_request(struct wl_client *client,
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
 
+	if (chromacities > ZWP_COLORSPACE_V1_CHROMACITIES_AP1)
+		chromacities = ZWP_COLORSPACE_V1_CHROMACITIES_UNDEFINED;
+
 	surface->pending.colorspace = colorspace_names[chromacities];
 }
 
