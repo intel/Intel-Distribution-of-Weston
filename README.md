@@ -1,3 +1,12 @@
+**Intel-Distribution-of-Weston
+
+This Weston version is based on upstream weston 9.0.0 and with in-house patches
+which enable High-Dynamic-Range (HDR).
+
+Simple way to test HDR video replay
+
+weston-simple-hdr-video-gbm <HDR video file in ts format>
+
 Weston
 ======
 
