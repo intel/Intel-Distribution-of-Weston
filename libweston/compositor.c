@@ -2989,7 +2989,6 @@ weston_output_finish_frame(struct weston_output *output,
 	int64_t msec_rel;
 
 	assert(output->repaint_status == REPAINT_AWAITING_COMPLETION);
-	assert(stamp || (presented_flags & WP_PRESENTATION_FEEDBACK_INVALID));
 
 	weston_compositor_read_presentation_clock(compositor, &now);
 
