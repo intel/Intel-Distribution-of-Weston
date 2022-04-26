@@ -207,6 +207,7 @@ struct gl_surface_state {
 
 	struct wl_listener surface_destroy_listener;
 	struct wl_listener renderer_destroy_listener;
+	struct gl_shader_requirements shader_requirements;
 };
 
 enum timeline_render_point_type {

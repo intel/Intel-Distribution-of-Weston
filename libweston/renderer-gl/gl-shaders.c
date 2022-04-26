@@ -60,6 +60,9 @@ struct gl_shader {
 	GLint color_uniform;
 	GLint color_pre_curve_lut_2d_uniform;
 	GLint color_pre_curve_lut_scale_offset_uniform;
+	GLint display_max_luminance;
+	GLint content_max_luminance;
+	GLint content_min_luminance;
 	struct wl_list link; /* gl_renderer::shader_list */
 	struct timespec last_used;
 };
@@ -91,6 +94,51 @@ gl_shader_color_curve_to_string(enum gl_shader_color_curve kind)
 #define CASERET(x) case x: return #x;
 	CASERET(SHADER_COLOR_CURVE_IDENTITY)
 	CASERET(SHADER_COLOR_CURVE_LUT_3x1D)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
+
+static const char *
+gl_shader_degamma_to_string(enum gl_shader_degamma_variant kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_DEGAMMA_NONE)
+	CASERET(SHADER_DEGAMMA_SRGB)
+	CASERET(SHADER_DEGAMMA_PQ)
+	CASERET(SHADER_DEGAMMA_HLG)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
+
+static const char *
+gl_shader_gamma_to_string(enum gl_shader_gamma_variant kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_GAMMA_NONE)
+	CASERET(SHADER_GAMMA_SRGB)
+	CASERET(SHADER_GAMMA_PQ)
+	CASERET(SHADER_GAMMA_HLG)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
+
+static const char *
+gl_shader_tone_map_to_string(enum gl_shader_tone_map_variant kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_TONE_MAP_NONE)
+	CASERET(SHADER_TONE_MAP_HDR_TO_SDR)
+	CASERET(SHADER_TONE_MAP_SDR_TO_HDR)
+	CASERET(SHADER_TONE_MAP_HDR_TO_HDR)
 #undef CASERET
 	}
 
@@ -182,11 +230,21 @@ create_shader_config_string(const struct gl_shader_requirements *req)
 			"#define DEF_GREEN_TINT %s\n"
 			"#define DEF_INPUT_IS_PREMULT %s\n"
 			"#define DEF_COLOR_PRE_CURVE %s\n"
-			"#define DEF_VARIANT %s\n",
+			"#define DEF_VARIANT %s\n"
+			"#define DEF_DEGAMMA %s\n"
+			"#define DEF_GAMMA_NL %s\n"
+			"#define DEF_GAMMA %s\n"
+			"#define DEF_TONE_MAP %s\n"
+			"#define DEF_CSC_MATRIX %s\n",
 			req->green_tint ? "true" : "false",
 			req->input_is_premult ? "true" : "false",
 			gl_shader_color_curve_to_string(req->color_pre_curve),
-			gl_shader_texture_variant_to_string(req->variant));
+			gl_shader_texture_variant_to_string(req->variant),
+			gl_shader_degamma_to_string(req->degamma),
+			gl_shader_gamma_to_string(req->nl_variant),
+			gl_shader_gamma_to_string(req->gamma),
+			gl_shader_tone_map_to_string(req->tone_mapping),
+			req->csc_matrix ? "true" : "false");
 	if (size < 0)
 		return NULL;
 	return str;
@@ -267,6 +325,13 @@ gl_shader_create(struct gl_renderer *gr,
 		glGetUniformLocation(shader->program, "color_pre_curve_lut_2d");
 	shader->color_pre_curve_lut_scale_offset_uniform =
 		glGetUniformLocation(shader->program, "color_pre_curve_lut_scale_offset");
+
+	shader->display_max_luminance =
+			glGetUniformLocation(shader->program, "display_max_luminance");
+	shader->content_max_luminance =
+			glGetUniformLocation(shader->program, "content_max_luminance");
+	shader->content_min_luminance =
+			glGetUniformLocation(shader->program, "content_min_luminance");
 
 	free(conf);
 

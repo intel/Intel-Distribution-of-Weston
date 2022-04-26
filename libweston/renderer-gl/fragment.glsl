@@ -46,6 +46,24 @@
 #define SHADER_COLOR_CURVE_IDENTITY 0
 #define SHADER_COLOR_CURVE_LUT_3x1D 1
 
+/* enum gl_shader_degamma_variant */
+#define SHADER_DEGAMMA_NONE 0
+#define SHADER_DEGAMMA_SRGB 1
+#define SHADER_DEGAMMA_PQ   2
+#define SHADER_DEGAMMA_HLG  3
+
+/* enum gl_shader_gamma_variant */
+#define SHADER_GAMMA_NONE 0
+#define SHADER_GAMMA_SRGB 1
+#define SHADER_GAMMA_PQ   2
+#define SHADER_GAMMA_HLG  3
+
+/* enum gl_shader_gamma_variant */
+#define SHADER_TONE_MAP_NONE       0
+#define SHADER_TONE_MAP_HDR_TO_SDR 1
+#define SHADER_TONE_MAP_SDR_TO_HDR 2
+#define SHADER_TONE_MAP_HDR_TO_HDR 3
+
 #if DEF_VARIANT == SHADER_VARIANT_EXTERNAL
 #extension GL_OES_EGL_image_external : require
 #endif
@@ -66,6 +84,11 @@ compile_const int c_variant = DEF_VARIANT;
 compile_const bool c_input_is_premult = DEF_INPUT_IS_PREMULT;
 compile_const bool c_green_tint = DEF_GREEN_TINT;
 compile_const int c_color_pre_curve = DEF_COLOR_PRE_CURVE;
+compile_const int c_degamma = DEF_DEGAMMA;
+compile_const int c_gamma = DEF_GAMMA;
+compile_const bool c_csc_matrix = DEF_CSC_MATRIX;
+compile_const int c_tone_mapping = DEF_TONE_MAP;
+compile_const int c_nl_variant = DEF_GAMMA;
 
 vec4
 yuva2rgba(vec4 yuva)
@@ -109,6 +132,210 @@ uniform float alpha;
 uniform vec4 unicolor;
 uniform HIGHPRECISION sampler2D color_pre_curve_lut_2d;
 uniform HIGHPRECISION vec2 color_pre_curve_lut_scale_offset;
+uniform mat3 csc;
+
+uniform float display_max_luminance;
+uniform float content_max_luminance;
+uniform float content_min_luminance;
+
+/* EOTFS */
+#if DEF_DEGAMMA == SHADER_DEGAMMA_SRGB
+float eotf_srgb_single(float c) {
+    return c < 0.04045 ? c / 12.92 : pow(((c + 0.055) / 1.055), 2.4);
+}
+
+vec3 eotf_srgb(vec3 color) {
+    float r = eotf_srgb_single(color.r);
+    float g = eotf_srgb_single(color.g);
+    float b = eotf_srgb_single(color.b);
+    return vec3(r, g, b);
+}
+
+vec3 eotf(vec3 color) {
+    return sign(color) * eotf_srgb(abs(color.rgb));
+}
+
+vec3 ScaleLuminance(vec3 color) {
+    return color * display_max_luminance;
+}
+#elif DEF_DEGAMMA == SHADER_DEGAMMA_PQ
+vec3 eotf(vec3 v) {
+    float m1 = 0.25 * 2610.0 / 4096.0;
+    float m2 = 128.0 * 2523.0 / 4096.0;
+    float c3 = 32.0 * 2392.0 / 4096.0;
+    float c2 = 32.0 * 2413.0 / 4096.0;
+    float c1 = c3 - c2 + 1.0;
+    vec3 n = pow(v, vec3(1.0 / m2));
+    return pow(max(n - c1, 0.0) / (c2 - c3 * n), vec3(1.0 / m1));
+}
+
+vec3 ScaleLuminance(vec3 color) {
+    return color * 10000.0;
+}
+#elif DEF_DEGAMMA == SHADER_DEGAMMA_HLG
+vec3 eotf(vec3 l) {
+    float a = 0.17883277;
+    float b = 1.0 - 4.0 * a;
+    float c = 0.5 - a * log(4.0 * a);
+    float x = step(1.0 / 2.0, l);
+    vec3 v0 = pow(l, 2.0) / 3.0;
+    vec3 v1 = (exp((l - c) / a) + b) / 12.0;
+    return mix(v0, v1, x);
+}
+
+vec3 ScaleLuminance(vec3 color) {
+    /* These are ITU 2100 recommendations */
+    float kr = 0.2627;
+    float kb = 0.0593;
+    float kg = 1.0 - kr - kb;
+    float luma = dot(color, vec3(kr, kg, kb));
+    return color * 1000.0 * pow(luma, 0.2);
+}
+#else
+vec3 eotf(vec3 color) {
+    return color;
+}
+
+vec3 ScaleLuminance(vec3 color) {
+    return color;
+}
+#endif
+
+/* OETFS */
+#if DEF_GAMMA == SHADER_GAMMA_SRGB
+float oetf_srgb_single(float c) {
+    float ret = 0.0;
+    if (c < 0.0031308) {
+        ret = 12.92 * c;
+    } else {
+        ret = 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+    }
+    return ret;
+}
+
+vec3 oetf_srgb(vec3 color) {
+    float r = oetf_srgb_single(color.r);
+    float g = oetf_srgb_single(color.g);
+    float b = oetf_srgb_single(color.b);
+    return vec3(r, g, b);
+}
+
+vec3 oetf(vec3 linear) {
+    return sign(linear) * oetf_srgb(abs(linear.rgb));
+}
+
+vec3 NormalizeLuminance(vec3 color) {
+    return color / display_max_luminance;
+}
+
+#elif DEF_GAMMA == SHADER_GAMMA_PQ
+vec3 oetf(vec3 l) {
+    float m1 = 0.25 * 2610.0 / 4096.0;
+    float m2 = 128.0 * 2523.0 / 4096.0;
+    float c3 = 32.0 * 2392.0 / 4096.0;
+    float c2 = 32.0 * 2413.0 / 4096.0;
+    float c1 = c3 - c2 + 1.0;
+    vec3 n = pow(l, vec3(m1));
+    return pow((c1 + c2 * n) / (1.0 + c3 * n), vec3(m2));
+}
+
+vec3 NormalizeLuminance(vec3 color) {
+    return color / 10000.0;
+}
+
+#elif DEF_GAMMA == SHADER_GAMMA_HLG
+vec3 oetf(vec3 l) {
+    float a = 0.17883277;
+    float b = 1.0 - 4.0 * a;
+    float c = 0.5 - a * log(4.0 * a);
+    float x = step(1.0 / 12.0, l);
+    vec3 v0 = a * log(12.0 * l - b) + c;
+    vec3 v1 = sqrt(3.0 * l);
+    return mix(v0, v1, x);
+}
+
+vec3 NormalizeLuminance(vec3 color) {
+    /* These are ITU 2100 recommendations */
+    float kr = 0.2627;
+    float kb = 0.0593;
+    float kg = 1.0 - kr - kb;
+    float luma = dot(color, vec3(kr, kg, kb));
+    return (color / 1000.0) * pow(luma, -0.2);
+}
+
+#else
+vec3 oetf(vec3 color) {
+    return color;
+}
+
+vec3 NormalizeLuminance(vec3 color) {
+    return color;
+}
+
+#endif
+
+#if DEF_TONE_MAP == SHADER_TONE_MAP_NONE
+vec3 tone_mapping(vec3 color) {
+    return color;
+}
+
+#elif DEF_TONE_MAP == SHADER_TONE_MAP_HDR_TO_SDR
+vec3 hable_curve(vec3 c) {
+    float A = 0.15;
+    float B = 0.50;
+    float C = 0.10;
+    float D = 0.20;
+    float E = 0.02;
+    float F = 0.30;
+    vec3 numerator = (c * (A * c + C * B) + D * E);
+    vec3 denominator = (c * (A * c + B) + D * F);
+    c = (numerator / denominator) - E / F;
+    return c;
+}
+
+vec3 tone_mapping(vec3 color) {
+    float W = 11.2;
+    float exposure = 100.0;
+    color *= exposure;
+    color = hable_curve(color);
+    float white = hable_curve(vec3(W, 0, 0)).x;
+    color /= white;
+    return color;
+}
+
+#elif DEF_TONE_MAP == SHADER_TONE_MAP_SDR_TO_HDR
+vec3 tone_mapping(vec3 color) {
+    /* These are ITU 2100 recommendations */
+    float kr = 0.2627;
+    float kb = 0.0593;
+    float kg = 1.0 - kr - kb;
+    float luma = dot(color, vec3(kr, kg, kb));
+    highp float tone_mapped_luma = 0.0;
+
+    if (luma > 5.0) {
+        tone_mapped_luma = luma / display_max_luminance;
+        tone_mapped_luma = pow(tone_mapped_luma, 1.5);
+        tone_mapped_luma *= display_max_luminance;
+        color *= tone_mapped_luma / luma;
+    }
+    return color;
+}
+
+#elif DEF_TONE_MAP == SHADER_TONE_MAP_HDR_TO_HDR
+vec3 tone_mapping(vec3 color) {
+    float range = content_max_luminance - content_min_luminance;
+    /* These are ITU 2100 recommendations */
+    float kr = 0.2627;
+    float kb = 0.0593;
+    float kg = 1.0 - kr - kb;
+    float luma = dot(color, vec3(kr, kg, kb));
+    float tone_mapped_luma = luma - content_min_luminance;
+    tone_mapped_luma /= range;
+    tone_mapped_luma *= display_max_luminance;
+    color *= tone_mapped_luma / luma;
+    return color;
+}
+#endif
 
 vec4
 sample_input_texture()
@@ -235,4 +462,35 @@ main()
 		color = vec4(0.0, 0.3, 0.0, 0.2) + color * 0.8;
 
 	gl_FragColor = color;
+
+	if (c_csc_matrix ||
+	    (c_tone_mapping != 0) && (c_degamma != 0))
+	/* eotf_shader */
+		gl_FragColor.rgb = eotf(gl_FragColor.rgb);
+
+	if (c_csc_matrix)
+	/* csc_shader */
+		gl_FragColor.rgb = clamp((csc * gl_FragColor.rgb), 0.0, 1.0);
+
+	if ((c_degamma != 0) &&
+	    (c_tone_mapping == SHADER_TONE_MAP_HDR_TO_HDR) ||
+	    (c_tone_mapping == SHADER_TONE_MAP_SDR_TO_HDR))
+	/* sl_shader */
+		gl_FragColor.rgb = ScaleLuminance(gl_FragColor.rgb);
+
+	if (c_tone_mapping != 0)
+	/* hdr_shader */
+		gl_FragColor.rgb = tone_mapping(gl_FragColor.rgb);
+
+	if (c_csc_matrix ||
+	    (c_tone_mapping != 0) &&
+	    (c_nl_variant != 0))
+	/* nl_shader */
+		gl_FragColor.rgb = NormalizeLuminance(gl_FragColor.rgb);
+
+	if (c_csc_matrix ||
+	    (c_tone_mapping != 0) &&
+	    (c_gamma != 0))
+	/* oetf_shader */
+		gl_FragColor.rgb = oetf(gl_FragColor.rgb);
 }

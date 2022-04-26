@@ -56,6 +56,27 @@ enum gl_shader_color_curve {
 	SHADER_COLOR_CURVE_LUT_3x1D,
 };
 
+enum gl_shader_degamma_variant {
+	SHADER_DEGAMMA_NONE = 0,
+	SHADER_DEGAMMA_SRGB,
+	SHADER_DEGAMMA_PQ,
+	SHADER_DEGAMMA_HLG,
+};
+
+enum gl_shader_gamma_variant {
+	SHADER_GAMMA_NONE = 0,
+	SHADER_GAMMA_SRGB,
+	SHADER_GAMMA_PQ,
+	SHADER_GAMMA_HLG,
+};
+
+enum gl_shader_tone_map_variant {
+	SHADER_TONE_MAP_NONE = 0,
+	SHADER_TONE_MAP_HDR_TO_SDR,
+	SHADER_TONE_MAP_SDR_TO_HDR,
+	SHADER_TONE_MAP_HDR_TO_HDR,
+};
+
 /** GL shader requirements key
  *
  * This structure is used as a binary blob key for building and searching
@@ -68,15 +89,23 @@ enum gl_shader_color_curve {
 struct gl_shader_requirements
 {
 	unsigned variant:4; /* enum gl_shader_texture_variant */
+	/* HDR */
+	bool csc_matrix:1;
+	unsigned degamma:4; /* enum gl_shader_degamma_variant */
+	unsigned nl_variant:4; /* enum gl_shader_gamma_variant */
+	unsigned gamma:4; /* enum gl_shader_gamma_variant */
+	unsigned tone_mapping:4; /* enum gl_shader_tone_map_variant */
+
 	bool input_is_premult:1;
 	bool green_tint:1;
 	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
+	bool debug:1;
 
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:25;
+	unsigned pad_bits_:7;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
