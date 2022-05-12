@@ -992,6 +992,59 @@ maybe_censor_override(struct gl_shader_config *sconf,
 }
 
 static void
+compute_hdr_requirements_from_view(struct gl_shader_config *sconf,
+				   struct weston_view *ev,
+				   struct weston_output *output)
+{
+	struct weston_surface *surface = ev->surface;
+	struct gl_output_state *go = get_output_state(output);
+	struct weston_hdr_metadata *src_md = surface->hdr_metadata;
+	struct weston_hdr_metadata *dst_md = go->target_hdr_metadata;
+	uint32_t target_colorspace = go->target_colorspace;
+	bool needs_csc = false;
+	uint32_t degamma = 0, gamma = 0;
+
+	// Start by assuming that we don't need color space conversion
+	sconf->req.csc_matrix = false;
+	needs_csc = surface->colorspace != target_colorspace;
+
+	if (needs_csc)
+		sconf->req.csc_matrix = true;
+
+	/* identify degamma curve from input metadata */
+	degamma = SHADER_DEGAMMA_SRGB;
+
+	if (src_md) {
+		switch (src_md->metadata.static_metadata.eotf) {
+		case WESTON_EOTF_ST2084:
+			degamma = SHADER_DEGAMMA_PQ;
+			break;
+		case WESTON_EOTF_HLG:
+			degamma = SHADER_DEGAMMA_HLG;
+			break;
+		}
+	}
+
+	sconf->req.degamma = degamma;
+
+	if (!shadow_exists(go)) {
+		gamma = SHADER_GAMMA_SRGB;
+		if (dst_md) {
+			switch (dst_md->metadata.static_metadata.eotf) {
+			case WESTON_EOTF_ST2084:
+				gamma = SHADER_GAMMA_PQ;
+				break;
+			case WESTON_EOTF_HLG:
+				gamma = SHADER_GAMMA_HLG;
+				break;
+			}
+		}
+
+		sconf->req.gamma = gamma;
+	}
+}
+
+static void
 gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 				    struct gl_surface_state *gs)
 {
@@ -1018,6 +1071,7 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 {
 	struct gl_surface_state *gs = get_surface_state(pnode->surface);
 	struct gl_output_state *go = get_output_state(pnode->output);
+	struct weston_surface *surface = pnode->view->surface;
 
 	if (!pnode->surf_xform_valid)
 		return false;
@@ -1026,6 +1080,8 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 		.projection = go->output_matrix,
 		.view_alpha = pnode->view->alpha,
 		.input_tex_filter = filter,
+		.src_cs = weston_colorspace_lookup(surface->colorspace),
+		.dst_cs = weston_colorspace_lookup(go->target_colorspace),
 	};
 
 	gl_shader_config_set_input_textures(sconf, gs);
@@ -1080,6 +1136,8 @@ draw_paint_node(struct weston_paint_node *pnode,
 
 	if (!gl_shader_config_init_for_paint_node(&sconf, pnode, filter))
 		goto out;
+
+	compute_hdr_requirements_from_view(&sconf, pnode->view, pnode->output);
 
 	/* blended region is whole surface minus opaque region: */
 	pixman_region32_init_rect(&surface_blend, 0, 0,
@@ -1313,8 +1371,11 @@ draw_output_borders(struct weston_output *output,
 	};
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
+	uint32_t target_colorspace = go->target_colorspace;
+	struct weston_hdr_metadata *dst_md = go->target_hdr_metadata;
 	struct gl_border_image *top, *bottom, *left, *right;
 	int full_width, full_height;
+	int gamma = 0;
 
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
@@ -1323,6 +1384,27 @@ draw_output_borders(struct weston_output *output,
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
 		return;
 	}
+
+	// assuming that the borders are always BT709
+	if (target_colorspace != WESTON_CS_BT709)
+		sconf.req.csc_matrix = true;
+	else
+		sconf.req.csc_matrix = false;
+
+	sconf.req.degamma = SHADER_DEGAMMA_SRGB;
+
+	gamma = SHADER_GAMMA_SRGB;
+	if (dst_md) {
+		switch (dst_md->metadata.static_metadata.eotf) {
+		case WESTON_EOTF_ST2084:
+			gamma = SHADER_GAMMA_PQ;
+			break;
+		case WESTON_EOTF_HLG:
+			gamma = SHADER_GAMMA_HLG;
+			break;
+		}
+	}
+	sconf.req.gamma = gamma;
 
 	top = &go->borders[GL_RENDERER_BORDER_TOP];
 	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
@@ -1554,9 +1636,10 @@ blit_shadow_to_output(struct weston_output *output,
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	double width = output->current_mode->width;
 	double height = output->current_mode->height;
+	struct weston_hdr_metadata *dst_md = go->target_hdr_metadata;
 	pixman_box32_t *rects;
 	int n_rects;
-	int i;
+	int i, gamma = 0;
 	pixman_region32_t translated_damage;
 	GLfloat verts[4 * 2];
 
@@ -1564,6 +1647,20 @@ blit_shadow_to_output(struct weston_output *output,
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
 		return;
 	}
+
+	gamma = SHADER_GAMMA_SRGB;
+	if (dst_md) {
+		switch (dst_md->metadata.static_metadata.eotf) {
+		case WESTON_EOTF_ST2084:
+			gamma = SHADER_GAMMA_PQ;
+			break;
+		case WESTON_EOTF_HLG:
+			gamma = SHADER_GAMMA_HLG;
+			break;
+		}
+	}
+
+	sconf.req.gamma = gamma;
 
 	pixman_region32_init(&translated_damage);
 

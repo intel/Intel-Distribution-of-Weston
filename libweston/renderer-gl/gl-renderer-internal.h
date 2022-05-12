@@ -125,6 +125,8 @@ struct gl_shader_config {
 	GLuint input_tex[GL_SHADER_INPUT_TEX_MAX];
 	GLuint color_pre_curve_lut_tex;
 	GLfloat color_pre_curve_lut_scale_offset[2];
+	const struct weston_colorspace *src_cs;
+	const struct weston_colorspace *dst_cs;
 };
 
 struct gl_renderer {

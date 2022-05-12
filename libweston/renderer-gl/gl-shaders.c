@@ -43,6 +43,7 @@
 #include "gl-renderer-internal.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
+#include "shared/csc.h"
 
 /* static const char vertex_shader[]; vertex.glsl */
 #include "vertex-shader.h"
@@ -58,6 +59,7 @@ struct gl_shader {
 	GLint tex_uniforms[3];
 	GLint alpha_uniform;
 	GLint color_uniform;
+	GLint csc_uniform;
 	GLint color_pre_curve_lut_2d_uniform;
 	GLint color_pre_curve_lut_scale_offset_uniform;
 	GLint display_max_luminance;
@@ -321,6 +323,7 @@ gl_shader_create(struct gl_renderer *gr,
 	shader->alpha_uniform = glGetUniformLocation(shader->program, "alpha");
 	shader->color_uniform = glGetUniformLocation(shader->program,
 						     "unicolor");
+	shader->csc_uniform = glGetUniformLocation(shader->program, "csc");
 	shader->color_pre_curve_lut_2d_uniform =
 		glGetUniformLocation(shader->program, "color_pre_curve_lut_2d");
 	shader->color_pre_curve_lut_scale_offset_uniform =
@@ -541,6 +544,9 @@ gl_shader_load_config(struct gl_shader *shader,
 {
 	GLint in_filter = sconf->input_tex_filter;
 	GLenum in_tgt;
+	struct weston_matrix csc_matrix;
+	float *dst;
+	float csc[9] = {0};
 	int i;
 
 	glUniformMatrix4fv(shader->proj_uniform,
@@ -579,6 +585,17 @@ gl_shader_load_config(struct gl_shader *shader,
 		glUniform2fv(shader->color_pre_curve_lut_scale_offset_uniform,
 			     1, sconf->color_pre_curve_lut_scale_offset);
 		break;
+	}
+
+	if (sconf->req.csc_matrix && sconf->dst_cs && sconf->src_cs) {
+		weston_matrix_init(&csc_matrix);
+		weston_csc_matrix(&csc_matrix, sconf->dst_cs, sconf->src_cs, 1.0);
+		dst = csc_matrix.d;
+		for (i = 0; i < 3; i++) {
+			memcpy(csc + 3 * i, dst, 3 * sizeof(float));
+			dst += 4;
+		}
+		glUniformMatrix3fv(shader->csc_uniform, 1, GL_FALSE, csc);
 	}
 }
 
