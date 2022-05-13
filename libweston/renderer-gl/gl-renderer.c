@@ -1001,12 +1001,18 @@ compute_hdr_requirements_from_view(struct gl_shader_config *sconf,
 	struct weston_hdr_metadata *src_md = surface->hdr_metadata;
 	struct weston_hdr_metadata *dst_md = go->target_hdr_metadata;
 	uint32_t target_colorspace = go->target_colorspace;
-	bool needs_csc = false;
+	bool needs_csc = false, needs_tm = false;
 	uint32_t degamma = 0, gamma = 0;
+	enum gl_shader_tone_map_variant tone_map_type = SHADER_TONE_MAP_NONE;
 
-	// Start by assuming that we don't need color space conversion
+	/* Start by assuming that we don't need color space conversion */
+	/* and tone mapping. This resets the csc and tone mapping requirements */
+	/* when the hdr requirements for the surface are removed. */
 	sconf->req.csc_matrix = false;
+	sconf->req.tone_mapping = SHADER_TONE_MAP_NONE;
+
 	needs_csc = surface->colorspace != target_colorspace;
+	needs_tm = src_md || dst_md;
 
 	if (needs_csc)
 		sconf->req.csc_matrix = true;
@@ -1027,6 +1033,22 @@ compute_hdr_requirements_from_view(struct gl_shader_config *sconf,
 
 	sconf->req.degamma = degamma;
 
+	if (needs_tm) {
+		if (dst_md) {
+			if (src_md)
+				tone_map_type = SHADER_TONE_MAP_HDR_TO_HDR;
+			else
+				tone_map_type = SHADER_TONE_MAP_SDR_TO_HDR;
+		} else {
+			if (src_md)
+				tone_map_type = SHADER_TONE_MAP_HDR_TO_SDR;
+			else
+				tone_map_type = SHADER_TONE_MAP_NONE;
+		}
+	}
+
+	sconf->req.tone_mapping = tone_map_type;
+
 	if (!shadow_exists(go)) {
 		gamma = SHADER_GAMMA_SRGB;
 		if (dst_md) {
@@ -1040,8 +1062,12 @@ compute_hdr_requirements_from_view(struct gl_shader_config *sconf,
 			}
 		}
 
+		sconf->req.nl_variant = gamma;
 		sconf->req.gamma = gamma;
 	}
+
+	sconf->src_md = src_md;
+	sconf->dst_md = dst_md;
 }
 
 static void
@@ -1405,6 +1431,9 @@ draw_output_borders(struct weston_output *output,
 		}
 	}
 	sconf.req.gamma = gamma;
+
+	if (dst_md)
+		sconf.req.tone_mapping = SHADER_TONE_MAP_SDR_TO_HDR;
 
 	top = &go->borders[GL_RENDERER_BORDER_TOP];
 	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];

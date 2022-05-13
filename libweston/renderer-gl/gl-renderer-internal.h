@@ -127,6 +127,8 @@ struct gl_shader_config {
 	GLfloat color_pre_curve_lut_scale_offset[2];
 	const struct weston_colorspace *src_cs;
 	const struct weston_colorspace *dst_cs;
+	struct weston_hdr_metadata *src_md;
+	struct weston_hdr_metadata *dst_md;
 };
 
 struct gl_renderer {

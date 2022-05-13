@@ -545,8 +545,12 @@ gl_shader_load_config(struct gl_shader *shader,
 	GLint in_filter = sconf->input_tex_filter;
 	GLenum in_tgt;
 	struct weston_matrix csc_matrix;
+	struct weston_hdr_metadata_static *static_metadata;
 	float *dst;
 	float csc[9] = {0};
+	uint32_t display_max_luminance;
+	uint32_t content_max_luminance;
+	uint32_t content_min_luminance;
 	int i;
 
 	glUniformMatrix4fv(shader->proj_uniform,
@@ -596,6 +600,27 @@ gl_shader_load_config(struct gl_shader *shader,
 			dst += 4;
 		}
 		glUniformMatrix3fv(shader->csc_uniform, 1, GL_FALSE, csc);
+	}
+
+	switch(sconf->req.tone_mapping) {
+	case SHADER_TONE_MAP_HDR_TO_HDR:
+		static_metadata = &sconf->src_md->metadata.static_metadata;
+		content_max_luminance = static_metadata->max_luminance;
+		content_min_luminance = static_metadata->min_luminance;
+		glUniform1f(shader->content_max_luminance,
+			    content_max_luminance);
+		glUniform1f(shader->content_min_luminance,
+			    content_min_luminance);
+		/* fallthrough */
+	case SHADER_TONE_MAP_SDR_TO_HDR:
+		static_metadata = &sconf->dst_md->metadata.static_metadata;
+		display_max_luminance = static_metadata->max_luminance;
+		glUniform1f(shader->display_max_luminance,
+			    display_max_luminance);
+		break;
+	default:
+		glUniform1f(shader->display_max_luminance, 1.0);
+		break;
 	}
 }
 
