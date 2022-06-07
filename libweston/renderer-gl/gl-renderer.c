@@ -4144,7 +4144,9 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	if (gr->gl_version >= gr_gl_version(3, 0) &&
 	    weston_check_egl_extension(extensions, "GL_OES_texture_float_linear") &&
 	    weston_check_egl_extension(extensions, "GL_EXT_color_buffer_half_float")) {
-		gr->gl_supports_color_transforms = true;
+		/* making it false as a hack to disable shadow-fbo for direct rendering
+		 * to main surface */
+		gr->gl_supports_color_transforms = false;
 	}
 
 	glActiveTexture(GL_TEXTURE0);
