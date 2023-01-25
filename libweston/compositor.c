@@ -2238,6 +2238,9 @@ weston_surface_destroy(struct weston_surface *surface)
 
 	weston_presentation_feedback_discard_list(&surface->feedback_list);
 
+	if(surface->hdr_surface_resource)
+		wl_resource_destroy(surface->hdr_surface_resource);
+
 	wl_list_for_each_safe(constraint, next_constraint,
 			      &surface->pointer_constraints,
 			      link)
