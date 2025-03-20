@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="colorspace_unstable_v1">
+
+  <copyright>
+    Copyright © 2019 Intel
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice (including the next
+    paragraph) shall be included in all copies or substantial portions of the
+    Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+  </copyright>
+
+  <interface name="zwp_colorspace_v1" version="1">
+    <description summary="colorspace">
+      This interface allows the client to set the color space of a surface.
+    </description>
+
+    <enum name="chromacities">
+      <entry name="undefined" value="0"
+             summary="Undefined"/>
+      <entry name="bt470m" value="1"
+             summary="BT.470 M"/>
+      <entry name="bt470bg" value="2"
+             summary="BT.470 B/G, EBU Tech 3213"/>
+      <entry name="smpte170m" value="3"
+             summary="SMPTE 170M, SMPTE 240M, SMPTE C"/>
+      <entry name="bt709" value="4"
+             summary="BT.709, sRGB"/>
+      <entry name="bt2020" value="5"
+             summary="BT.2020"/>
+      <entry name="adobergb" value="6"
+             summary="AdobeRGB"/>
+      <entry name="dci_p3" value="7"
+             summary="DCI-P3"/>
+      <entry name="prophotorgb" value="8"
+             summary="ProPhotoRGB"/>
+      <entry name="ciergb" value="9"
+             summary="CIE RGB"/>
+      <entry name="ciexyz" value="10"
+             summary="CIE XYZ"/>
+      <entry name="ap0" value="11"
+             summary="ACES primaries #0"/>
+      <entry name="ap1" value="12"
+             summary="ACES primaries #1"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="delete this object">
+	Deleting this object does not affect the surfaces' colorspace set using
+	this interface.
+      </description>
+    </request>
+
+    <request name="set">
+      <description summary="set the colorspace for a surface">
+	The colorspace set for the surface is double buffered and will be applied
+	on the next wl_surface::commit
+      </description>
+      <arg name="surface" type="object" interface="wl_surface" summary="surface"/>
+      <arg name="chromacities" type="uint" enum="chromacities"
+	   summary="chromacities for primaries and white point"/>
+    </request>
+  </interface>
+
+</protocol>
