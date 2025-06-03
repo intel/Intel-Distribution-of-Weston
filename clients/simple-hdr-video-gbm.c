@@ -261,7 +261,9 @@ fill_subtitle(struct buffer *buffer)
 	cairo_surface_t *surface;
 	cairo_t* cr;
 	char *title = "Sample subtitle string";
+#ifdef HAVE_PANGO
 	PangoLayout *title_layout;
+#endif
 
 	assert(buffer->mmap);
 
