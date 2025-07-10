@@ -261,7 +261,9 @@ fill_subtitle(struct buffer *buffer)
 	cairo_surface_t *surface;
 	cairo_t* cr;
 	char *title = "Sample subtitle string";
+#ifdef HAVE_PANGO
 	PangoLayout *title_layout;
+#endif
 
 	assert(buffer->mmap);
 
@@ -420,6 +422,7 @@ static bool
 decode(struct video *s, AVFrame *frame)
 {
 	int r;
+	bool need_flush;
 
 	if (s->pkt->size == 0)
 		return false;
@@ -427,13 +430,24 @@ decode(struct video *s, AVFrame *frame)
 	if (s->pkt->stream_index != s->stream_index)
 		return false;
 
-	r = avcodec_send_packet(s->codec, s->pkt);
-	if (r < 0)
-		return false;
+	do {
+                need_flush = false;
 
-	r = avcodec_receive_frame(s->codec, frame);
-	if (r < 0)
-		return false;
+                r = avcodec_send_packet(s->codec, s->pkt);
+                if (r == AVERROR(EAGAIN))
+                        need_flush = true;
+                else if (r < 0)
+                        break;
+
+                do
+                {
+                        r = avcodec_receive_frame(s->codec, frame);
+                } while (need_flush && r != AVERROR(EAGAIN));
+
+        } while (need_flush);
+
+        if (r < 0)
+                return false;
 
 	return true;
 }
